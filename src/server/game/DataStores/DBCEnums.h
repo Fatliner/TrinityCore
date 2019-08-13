@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -44,11 +44,11 @@ enum LevelLimit
     // Client expected level limitation, like as used in DBC item max levels for "until max player level"
     // use as default max player level, must be fit max level for used client
     // also see MAX_LEVEL and STRONG_MAX_LEVEL define
-    DEFAULT_MAX_LEVEL = 110,
+    DEFAULT_MAX_LEVEL = 120,
 
     // client supported max level for player/pets/etc. Avoid overflow or client stability affected.
     // also see GT_MAX_LEVEL define
-    MAX_LEVEL = 110,
+    MAX_LEVEL = 120,
 
     // Server side limitation. Base at used code requirements.
     // also see MAX_LEVEL and GT_MAX_LEVEL define
@@ -58,7 +58,7 @@ enum LevelLimit
 enum BattlegroundBracketId                                  // bracketId for level ranges
 {
     BG_BRACKET_ID_FIRST          = 0,
-    BG_BRACKET_ID_LAST           = 11,
+    BG_BRACKET_ID_LAST           = 12,
 
     // must be max value in PvPDificulty slot + 1
     MAX_BATTLEGROUND_BRACKETS
@@ -166,7 +166,7 @@ enum ArtifactPowerFlag : uint8
 
 #define MAX_ARTIFACT_TIER 1
 
-#define BATTLE_PET_SPECIES_MAX_ID 2164
+#define BATTLE_PET_SPECIES_MAX_ID 2775
 
 enum ChrSpecializationFlag
 {
@@ -196,18 +196,21 @@ enum CriteriaCondition
 enum CriteriaAdditionalCondition
 {
     CRITERIA_ADDITIONAL_CONDITION_SOURCE_DRUNK_VALUE            = 1, // NYI
-    CRITERIA_ADDITIONAL_CONDITION_UNK2                          = 2,
+    CRITERIA_ADDITIONAL_CONDITION_SOURCE_PLAYER_CONDITION       = 2,
     CRITERIA_ADDITIONAL_CONDITION_ITEM_LEVEL                    = 3, // NYI
     CRITERIA_ADDITIONAL_CONDITION_TARGET_CREATURE_ENTRY         = 4,
     CRITERIA_ADDITIONAL_CONDITION_TARGET_MUST_BE_PLAYER         = 5,
     CRITERIA_ADDITIONAL_CONDITION_TARGET_MUST_BE_DEAD           = 6,
     CRITERIA_ADDITIONAL_CONDITION_TARGET_MUST_BE_ENEMY          = 7,
     CRITERIA_ADDITIONAL_CONDITION_SOURCE_HAS_AURA               = 8,
+    CRITERIA_ADDITIONAL_CONDITION_SOURCE_HAS_AURA_TYPE          = 9,
     CRITERIA_ADDITIONAL_CONDITION_TARGET_HAS_AURA               = 10,
     CRITERIA_ADDITIONAL_CONDITION_TARGET_HAS_AURA_TYPE          = 11,
+    CRITERIA_ADDITIONAL_CONDITION_SOURCE_AURA_STATE             = 12,
+    CRITERIA_ADDITIONAL_CONDITION_TARGET_AURA_STATE             = 13,
     CRITERIA_ADDITIONAL_CONDITION_ITEM_QUALITY_MIN              = 14,
     CRITERIA_ADDITIONAL_CONDITION_ITEM_QUALITY_EQUALS           = 15,
-    CRITERIA_ADDITIONAL_CONDITION_UNK16                         = 16,
+    CRITERIA_ADDITIONAL_CONDITION_SOURCE_IS_ALIVE               = 16,
     CRITERIA_ADDITIONAL_CONDITION_SOURCE_AREA_OR_ZONE           = 17,
     CRITERIA_ADDITIONAL_CONDITION_TARGET_AREA_OR_ZONE           = 18,
     CRITERIA_ADDITIONAL_CONDITION_MAP_DIFFICULTY_OLD            = 20,
@@ -229,7 +232,7 @@ enum CriteriaAdditionalCondition
     CRITERIA_ADDITIONAL_CONDITION_TARGET_LEVEL                  = 40,
     CRITERIA_ADDITIONAL_CONDITION_TARGET_ZONE                   = 41,
     CRITERIA_ADDITIONAL_CONDITION_TARGET_HEALTH_PERCENT_BELOW   = 46,
-    CRITERIA_ADDITIONAL_CONDITION_UNK55                         = 55,
+    CRITERIA_ADDITIONAL_CONDITION_TARGET_PLAYER_CONDITION       = 55,
     CRITERIA_ADDITIONAL_CONDITION_MIN_ACHIEVEMENT_POINTS        = 56, // NYI
     CRITERIA_ADDITIONAL_CONDITION_REQUIRES_LFG_GROUP            = 58, // NYI
     CRITERIA_ADDITIONAL_CONDITION_UNK60                         = 60,
@@ -257,6 +260,9 @@ enum CriteriaAdditionalCondition
     //CRITERIA_ADDITIONAL_CONDITION_UNK87                         = 87, // Achievement id
     CRITERIA_ADDITIONAL_CONDITION_BATTLE_PET_SPECIES            = 91,
     CRITERIA_ADDITIONAL_CONDITION_EXPANSION                     = 92,
+    CRITERIA_ADDITIONAL_CONDITION_REWARDED_QUEST                = 110,
+    CRITERIA_ADDITIONAL_CONDITION_COMPLETED_QUEST               = 111,
+    CRITERIA_ADDITIONAL_CONDITION_COMPLETED_QUEST_OBJECTIVE     = 112, // NYI, QuestObjectiveID
     CRITERIA_ADDITIONAL_CONDITION_GARRISON_FOLLOWER_ENTRY       = 144,
     CRITERIA_ADDITIONAL_CONDITION_GARRISON_FOLLOWER_QUALITY     = 145,
     CRITERIA_ADDITIONAL_CONDITION_GARRISON_FOLLOWER_LEVEL       = 146,
@@ -502,10 +508,13 @@ enum CriteriaTypes : uint8
     CRITERIA_TYPE_TRANSMOG_SET_UNLOCKED                 = 205,
     CRITERIA_TYPE_GAIN_PARAGON_REPUTATION               = 206,
     CRITERIA_TYPE_EARN_HONOR_XP                         = 207,
-    CRITERIA_TYPE_RELIC_TALENT_UNLOCKED                 = 211
+    CRITERIA_TYPE_RELIC_TALENT_UNLOCKED                 = 211,
+    CRITERIA_TYPE_REACH_ACCOUNT_HONOR_LEVEL             = 213,
+    CRITERIA_TREE_HEART_OF_AZEROTH_ARTIFACT_POWER_EARNED= 214,
+    CRITERIA_TREE_HEART_OF_AZEROTH_LEVEL_REACHED        = 215
 };
 
-#define CRITERIA_TYPE_TOTAL 213
+#define CRITERIA_TYPE_TOTAL 217
 
 enum CriteriaTreeFlags : uint16
 {
@@ -547,7 +556,8 @@ enum CharSectionFlags
 {
     SECTION_FLAG_PLAYER = 0x01,
     SECTION_FLAG_DEATH_KNIGHT = 0x04,
-    SECTION_FLAG_DEMON_HUNTER = 0x20
+    SECTION_FLAG_DEMON_HUNTER = 0x20,
+    SECTION_FLAG_CONDITIONAL = 0x400
 };
 
 enum CharSectionType
@@ -608,6 +618,12 @@ enum Difficulty : uint8
     DIFFICULTY_WORLD_PVP_SCENARIO_2 = 32,
     DIFFICULTY_TIMEWALKING_RAID     = 33,
     DIFFICULTY_PVP                  = 34,
+    DIFFICULTY_NORMAL_ISLAND        = 38,
+    DIFFICULTY_HEROIC_ISLAND        = 39,
+    DIFFICULTY_MYTHIC_ISLAND        = 40,
+    DIFFICULTY_PVP_ISLAND           = 45,
+    DIFFICULTY_NORMAL_WARFRONT      = 147,
+    DIFFICULTY_HEROIC_WARFRONT      = 149,
 
     MAX_DIFFICULTY
 };
@@ -641,6 +657,20 @@ enum SpawnMask
     SPAWNMASK_RAID_HEROIC_ALL   = (SPAWNMASK_RAID_10MAN_HEROIC | SPAWNMASK_RAID_25MAN_HEROIC),
 
     SPAWNMASK_RAID_ALL          = (SPAWNMASK_RAID_NORMAL_ALL | SPAWNMASK_RAID_HEROIC_ALL)
+};
+
+enum class ExpectedStatType : uint8
+{
+    CreatureHealth          = 0,
+    PlayerHealth            = 1,
+    CreatureAutoAttackDps   = 2,
+    CreatureArmor           = 3,
+    PlayerMana              = 4,
+    PlayerPrimaryStat       = 5,
+    PlayerSecondaryStat     = 6,
+    ArmorConstant           = 7,
+    None                    = 8,
+    CreatureSpellDamage     = 9
 };
 
 enum FactionTemplateFlags
@@ -743,6 +773,68 @@ enum ItemBonusType
     ITEM_BONUS_BONDING                          = 16,
     ITEM_BONUS_RELIC_TYPE                       = 17,
     ITEM_BONUS_OVERRIDE_REQUIRED_LEVEL          = 18
+};
+
+enum class ItemContext : uint8
+{
+    NONE                    = 0,
+    Dungeon_Normal          = 1,
+    Dungeon_Heroic          = 2,
+    Raid_Normal             = 3,
+    Raid_Raid_Finder        = 4,
+    Raid_Heroic             = 5,
+    Raid_Mythic             = 6,
+    PVP_Unranked_1          = 7,
+    PVP_Ranked_1            = 8,
+    Scenario_Normal         = 9,
+    Scenario_Heroic         = 10,
+    Quest_Reward            = 11,
+    Store                   = 12,
+    Trade_Skill             = 13,
+    Vendor                  = 14,
+    Black_Market            = 15,
+    Challenge_Mode_1        = 16,
+    Dungeon_Lvl_Up_1        = 17,
+    Dungeon_Lvl_Up_2        = 18,
+    Dungeon_Lvl_Up_3        = 19,
+    Dungeon_Lvl_Up_4        = 20,
+    Force_to_NONE           = 21,
+    TimeWalker              = 22,
+    Dungeon_Mythic          = 23,
+    Pvp_Honor_Reward        = 24,
+    World_Quest_1           = 25,
+    World_Quest_2           = 26,
+    World_Quest_3           = 27,
+    World_Quest_4           = 28,
+    World_Quest_5           = 29,
+    World_Quest_6           = 30,
+    Mission_Reward_1        = 31,
+    Mission_Reward_2        = 32,
+    Challenge_Mode_2        = 33,
+    Challenge_Mode_3        = 34,
+    Challenge_Mode_Jackpot  = 35,
+    World_Quest_7           = 36,
+    World_Quest_8           = 37,
+    PVP_Ranked_2            = 38,
+    PVP_Ranked_3            = 39,
+    PVP_Ranked_4            = 40,
+    PVP_Unranked_2          = 41,
+    World_Quest_9           = 42,
+    World_Quest_10          = 43,
+    PVP_Ranked_5            = 44,
+    PVP_Ranked_6            = 45,
+    PVP_Ranked_7            = 46,
+    PVP_Unranked_3          = 47,
+    PVP_Unranked_4          = 48,
+    PVP_Unranked_5          = 49,
+    PVP_Unranked_6          = 50,
+    PVP_Unranked_7          = 51,
+    PVP_Ranked_8            = 52,
+    World_Quest_11          = 53,
+    World_Quest_12          = 54,
+    World_Quest_13          = 55,
+    PVP_Ranked_Jackpot      = 56,
+    Tournament_Realm        = 57,
 };
 
 enum ItemLimitCategoryMode
@@ -917,7 +1009,7 @@ enum SpellShapeshiftFormFlags
     SHAPESHIFT_FORM_PREVENT_EMOTE_SOUNDS        = 0x1000
 };
 
-#define TaxiMaskSize 258
+#define TaxiMaskSize 311
 typedef std::array<uint8, TaxiMaskSize> TaxiMask;
 
 enum TotemCategoryType
@@ -989,8 +1081,7 @@ enum SummonPropFlags
 
 #define MAX_TALENT_TIERS 7
 #define MAX_TALENT_COLUMNS 3
-#define MAX_PVP_TALENT_TIERS 6
-#define MAX_PVP_TALENT_COLUMNS 3
+#define MAX_PVP_TALENT_SLOTS 4
 
 enum TaxiNodeFlags
 {
@@ -1005,11 +1096,30 @@ enum TaxiPathNodeFlags
     TAXI_PATH_NODE_FLAG_STOP        = 0x2
 };
 
+enum UiMapSystem : int8
+{
+    UI_MAP_SYSTEM_WORLD     = 0,
+    UI_MAP_SYSTEM_TAXI      = 1,
+    UI_MAP_SYSTEM_ADVENTURE = 2,
+    MAX_UI_MAP_SYSTEM       = 3
+};
+
+enum UiMapType : int8
+{
+    UI_MAP_TYPE_COSMIC      = 0,
+    UI_MAP_TYPE_WORLD       = 1,
+    UI_MAP_TYPE_CONTINENT   = 2,
+    UI_MAP_TYPE_ZONE        = 3,
+    UI_MAP_TYPE_DUNGEON     = 4,
+    UI_MAP_TYPE_MICRO       = 5,
+    UI_MAP_TYPE_ORPHAN      = 6,
+};
+
 enum VehicleSeatFlags
 {
     VEHICLE_SEAT_FLAG_HAS_LOWER_ANIM_FOR_ENTER                         = 0x00000001,
     VEHICLE_SEAT_FLAG_HAS_LOWER_ANIM_FOR_RIDE                          = 0x00000002,
-    VEHICLE_SEAT_FLAG_UNK3                                             = 0x00000004,
+    VEHICLE_SEAT_FLAG_DISABLE_GRAVITY                                  = 0x00000004, // Passenger will not be affected by gravity
     VEHICLE_SEAT_FLAG_SHOULD_USE_VEH_SEAT_EXIT_ANIM_ON_VOLUNTARY_EXIT  = 0x00000008,
     VEHICLE_SEAT_FLAG_UNK5                                             = 0x00000010,
     VEHICLE_SEAT_FLAG_UNK6                                             = 0x00000020,

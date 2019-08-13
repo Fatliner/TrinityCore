@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -212,8 +212,8 @@ public:
 
     bool LoadFromDB(PreparedQueryResult garrison, PreparedQueryResult blueprints, PreparedQueryResult buildings,
         PreparedQueryResult followers, PreparedQueryResult abilities);
-    void SaveToDB(SQLTransaction trans);
-    static void DeleteFromDB(ObjectGuid::LowType ownerGuid, SQLTransaction trans);
+    void SaveToDB(CharacterDatabaseTransaction trans);
+    static void DeleteFromDB(ObjectGuid::LowType ownerGuid, CharacterDatabaseTransaction trans);
 
     bool Create(uint32 garrSiteId);
     void Delete();
