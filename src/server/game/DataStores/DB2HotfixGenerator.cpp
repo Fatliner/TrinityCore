@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,7 +21,7 @@
 
 void DB2HotfixGeneratorBase::LogMissingRecord(std::string const& storageName, uint32 recordId)
 {
-    TC_LOG_ERROR("db2.hotfix", "Hotfix specified for %s row id %u which does not exist", storageName.c_str(), recordId);
+    TC_LOG_ERROR("db2.hotfix", "Hotfix specified for {} row id {} which does not exist", storageName, recordId);
 }
 
 void DB2HotfixGeneratorBase::AddClientHotfix(uint32 tableHash, uint32 recordId)

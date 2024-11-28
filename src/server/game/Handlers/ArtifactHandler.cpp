@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -32,7 +32,7 @@ void WorldSession::HandleArtifactAddPower(WorldPackets::Artifact::ArtifactAddPow
         return;
 
     Item* artifact = _player->GetItemByGuid(artifactAddPower.ArtifactGUID);
-    if (!artifact)
+    if (!artifact || artifact->IsArtifactDisabled())
         return;
 
     uint32 currentArtifactTier = artifact->GetModifier(ITEM_MODIFIER_ARTIFACT_TIER);
@@ -55,11 +55,11 @@ void WorldSession::HandleArtifactAddPower(WorldPackets::Artifact::ArtifactAddPow
     if (!artifactPowerEntry)
         return;
 
-    if (artifactPowerEntry->Tier > currentArtifactTier)
+    if (uint32(artifactPowerEntry->Tier) > currentArtifactTier)
         return;
 
     uint32 maxRank = artifactPowerEntry->MaxPurchasableRank;
-    if (artifactPowerEntry->Tier < currentArtifactTier)
+    if (uint32(artifactPowerEntry->Tier) < currentArtifactTier)
     {
         if (artifactPowerEntry->Flags & ARTIFACT_POWER_FLAG_FINAL)
             maxRank = 1;
@@ -73,7 +73,7 @@ void WorldSession::HandleArtifactAddPower(WorldPackets::Artifact::ArtifactAddPow
 
     if (!(artifactPowerEntry->Flags & ARTIFACT_POWER_FLAG_NO_LINK_REQUIRED))
     {
-        if (std::unordered_set<uint32> const* artifactPowerLinks = sDB2Manager.GetArtifactPowerLinks(artifactPower->ArtifactPowerID))
+        if (std::vector<uint32> const* artifactPowerLinks = sDB2Manager.GetArtifactPowerLinks(artifactPower->ArtifactPowerID))
         {
             bool hasAnyLink = false;
             for (uint32 artifactPowerLinkId : *artifactPowerLinks)
@@ -152,6 +152,7 @@ void WorldSession::HandleArtifactAddPower(WorldPackets::Artifact::ArtifactAddPow
         artifact->InitArtifactPowers(artifact->GetTemplate()->GetArtifactID(), uint8(i));
 
     artifact->SetModifier(ITEM_MODIFIER_ARTIFACT_TIER, artifactTier);
+    _player->UpdateCriteria(CriteriaType::AnyArtifactPowerRankPurchased, totalPurchasedArtifactPower);
 }
 
 void WorldSession::HandleArtifactSetAppearance(WorldPackets::Artifact::ArtifactSetAppearance& artifactSetAppearance)
@@ -171,9 +172,8 @@ void WorldSession::HandleArtifactSetAppearance(WorldPackets::Artifact::ArtifactS
     if (!artifactAppearanceSet || artifactAppearanceSet->ArtifactID != artifact->GetTemplate()->GetArtifactID())
         return;
 
-    if (PlayerConditionEntry const* playerCondition = sPlayerConditionStore.LookupEntry(artifactAppearance->UnlockPlayerConditionID))
-        if (!sConditionMgr->IsPlayerMeetingCondition(_player, playerCondition))
-            return;
+    if (!ConditionMgr::IsPlayerMeetingCondition(_player, artifactAppearance->UnlockPlayerConditionID))
+        return;
 
     artifact->SetAppearanceModId(artifactAppearance->ItemAppearanceModifierID);
     artifact->SetModifier(ITEM_MODIFIER_ARTIFACT_APPEARANCE_ID, artifactAppearance->ID);
@@ -204,7 +204,7 @@ void WorldSession::HandleConfirmArtifactRespec(WorldPackets::Artifact::ConfirmAr
         return;
 
     Item* artifact = _player->GetItemByGuid(confirmArtifactRespec.ArtifactGUID);
-    if (!artifact)
+    if (!artifact || artifact->IsArtifactDisabled())
         return;
 
     uint64 xpCost = 0;

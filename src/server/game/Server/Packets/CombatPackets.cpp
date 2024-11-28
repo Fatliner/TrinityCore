@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -37,7 +37,7 @@ WorldPackets::Combat::SAttackStop::SAttackStop(Unit const* attacker, Unit const*
     if (victim)
     {
         Victim = victim->GetGUID();
-        NowDead = victim->isDead();
+        NowDead = !victim->IsAlive(); // using isAlive instead of isDead to catch JUST_DIED death states as well
     }
 }
 
@@ -96,7 +96,7 @@ WorldPacket const* WorldPackets::Combat::AIReaction::Write()
 
 WorldPacket const* WorldPackets::Combat::AttackSwingError::Write()
 {
-    _worldPacket.WriteBits(Reason, 3);
+    _worldPacket.WriteBits(AsUnderlyingType(Reason), 3);
     _worldPacket.FlushBits();
     return &_worldPacket;
 }
@@ -107,9 +107,16 @@ WorldPacket const* WorldPackets::Combat::PowerUpdate::Write()
     _worldPacket << uint32(Powers.size());
     for (PowerUpdatePower const& power : Powers)
     {
-        _worldPacket << int32(power.Power);
         _worldPacket << uint8(power.PowerType);
+        _worldPacket << int32(power.Power);
     }
+
+    return &_worldPacket;
+}
+
+WorldPacket const* WorldPackets::Combat::InterruptPowerRegen::Write()
+{
+    _worldPacket << int8(PowerType);
 
     return &_worldPacket;
 }

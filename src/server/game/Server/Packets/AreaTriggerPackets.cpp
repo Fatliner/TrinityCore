@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -31,10 +31,10 @@ ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::AreaTrigger::AreaTriggerS
     return data;
 }
 
-ByteBuffer& operator<<(ByteBuffer& data, AreaTriggerCircularMovementInfo const& areaTriggerCircularMovement)
+ByteBuffer& operator<<(ByteBuffer& data, AreaTriggerOrbitInfo const& areaTriggerCircularMovement)
 {
-    data.WriteBit(areaTriggerCircularMovement.PathTarget.is_initialized());
-    data.WriteBit(areaTriggerCircularMovement.Center.is_initialized());
+    data.WriteBit(areaTriggerCircularMovement.PathTarget.has_value());
+    data.WriteBit(areaTriggerCircularMovement.Center.has_value());
     data.WriteBit(areaTriggerCircularMovement.CounterClockwise);
     data.WriteBit(areaTriggerCircularMovement.CanLoop);
 
@@ -51,6 +51,14 @@ ByteBuffer& operator<<(ByteBuffer& data, AreaTriggerCircularMovementInfo const& 
 
     if (areaTriggerCircularMovement.Center)
         data << *areaTriggerCircularMovement.Center;
+
+    return data;
+}
+
+ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::AreaTrigger::AreaTriggerMovementScriptInfo const& areaTriggerMovementScript)
+{
+    data << int32(areaTriggerMovementScript.SpellScriptID);
+    data << areaTriggerMovementScript.Center;
 
     return data;
 }
@@ -74,16 +82,29 @@ WorldPacket const* WorldPackets::AreaTrigger::AreaTriggerDenied::Write()
 WorldPacket const* WorldPackets::AreaTrigger::AreaTriggerRePath::Write()
 {
     _worldPacket << TriggerGUID;
+    _worldPacket << Unused_1100;
 
-    _worldPacket.WriteBit(AreaTriggerSpline.is_initialized());
-    _worldPacket.WriteBit(AreaTriggerCircularMovement.is_initialized());
+    _worldPacket.WriteBit(AreaTriggerSpline.has_value());
+    _worldPacket.WriteBit(AreaTriggerOrbit.has_value());
+    _worldPacket.WriteBit(AreaTriggerMovementScript.has_value());
     _worldPacket.FlushBits();
 
     if (AreaTriggerSpline)
         _worldPacket << *AreaTriggerSpline;
 
-    if (AreaTriggerCircularMovement)
-        _worldPacket << *AreaTriggerCircularMovement;
+    if (AreaTriggerMovementScript)
+        _worldPacket << *AreaTriggerMovementScript;
+
+    if (AreaTriggerOrbit)
+        _worldPacket << *AreaTriggerOrbit;
+
+    return &_worldPacket;
+}
+
+WorldPacket const* WorldPackets::AreaTrigger::AreaTriggerPlaySpellVisual::Write()
+{
+    _worldPacket << AreaTriggerGUID;
+    _worldPacket << uint32(SpellVisualID);
 
     return &_worldPacket;
 }

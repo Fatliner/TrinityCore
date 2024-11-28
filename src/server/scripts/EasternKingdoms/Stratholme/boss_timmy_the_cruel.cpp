@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -47,9 +46,9 @@ public:
         return GetStratholmeAI<boss_timmy_the_cruelAI>(creature);
     }
 
-    struct boss_timmy_the_cruelAI : public ScriptedAI
+    struct boss_timmy_the_cruelAI : public BossAI
     {
-        boss_timmy_the_cruelAI(Creature* creature) : ScriptedAI(creature)
+        boss_timmy_the_cruelAI(Creature* creature) : BossAI(creature, BOSS_TIMMY_THE_CRUEL)
         {
             Initialize();
         }
@@ -65,11 +64,15 @@ public:
 
         void Reset() override
         {
+            BossAI::Reset();
+
             Initialize();
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* who) override
         {
+            BossAI::JustEngagedWith(who);
+
             if (!HasYelled)
             {
                 Talk(SAY_SPAWN);
@@ -91,8 +94,6 @@ public:
                 //15 seconds until we should cast this again
                 RavenousClaw_Timer = 15000;
             } else RavenousClaw_Timer -= diff;
-
-            DoMeleeAttackIfReady();
         }
     };
 

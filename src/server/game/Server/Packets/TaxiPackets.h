@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -102,9 +102,11 @@ namespace WorldPackets
         class NewTaxiPath final : public ServerPacket
         {
         public:
-            NewTaxiPath() : ServerPacket(SMSG_NEW_TAXI_PATH, 0) { }
+            explicit NewTaxiPath(int32 taxiNodesId) : ServerPacket(SMSG_NEW_TAXI_PATH, 4), TaxiNodesID(taxiNodesId) { }
 
-            WorldPacket const* Write() override { return &_worldPacket; }
+            WorldPacket const* Write() override;
+
+            int32 TaxiNodesID = 0;
         };
 
         class ActivateTaxiReply final : public ServerPacket

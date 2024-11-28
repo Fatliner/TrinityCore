@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -18,7 +18,14 @@
 #include "PhaseShift.h"
 #include "Containers.h"
 
-bool PhaseShift::AddPhase(uint32 phaseId, PhaseFlags flags, std::vector<Condition*> const* areaConditions, int32 references /*= 1*/)
+PhaseShift::PhaseShift() = default;
+PhaseShift::PhaseShift(PhaseShift const& right) = default;
+PhaseShift::PhaseShift(PhaseShift&& right)  noexcept = default;
+PhaseShift& PhaseShift::operator=(PhaseShift const& right) = default;
+PhaseShift& PhaseShift::operator=(PhaseShift&& right) noexcept = default;
+PhaseShift::~PhaseShift() = default;
+
+bool PhaseShift::AddPhase(uint32 phaseId, PhaseFlags flags, std::vector<Condition> const* areaConditions, int32 references /*= 1*/)
 {
     auto insertResult = Phases.emplace(phaseId, flags, nullptr);
     ModifyPhasesReferences(insertResult.first, references);
@@ -82,17 +89,18 @@ PhaseShift::EraseResult<PhaseShift::UiMapPhaseIdContainer> PhaseShift::RemoveUiM
 void PhaseShift::Clear()
 {
     ClearPhases();
-    PersonalGuid.Clear();
     VisibleMapIds.clear();
     UiMapPhaseIds.clear();
 }
 
 void PhaseShift::ClearPhases()
 {
-    Flags &= EnumClassFlag<PhaseShiftFlags>(PhaseShiftFlags::AlwaysVisible) | PhaseShiftFlags::Inverse;
+    Flags &= PhaseShiftFlags::AlwaysVisible | PhaseShiftFlags::Inverse;
+    PersonalGuid.Clear();
     Phases.clear();
     NonCosmeticReferences = 0;
     CosmeticReferences = 0;
+    PersonalReferences = 0;
     DefaultReferences = 0;
     UpdateUnphasedFlag();
 }
@@ -123,20 +131,19 @@ bool PhaseShift::CanSee(PhaseShift const& other) const
 
     auto checkInversePhaseShift = [excludePhasesWithFlag](PhaseShift const& phaseShift, PhaseShift const& excludedPhaseShift)
     {
-        if (phaseShift.Flags.HasFlag(PhaseShiftFlags::Unphased) && !excludedPhaseShift.Flags.HasFlag(PhaseShiftFlags::InverseUnphased))
-            return true;
+        if (phaseShift.Flags.HasFlag(PhaseShiftFlags::Unphased) && excludedPhaseShift.Flags.HasFlag(PhaseShiftFlags::InverseUnphased))
+            return false;
 
-        for (auto itr = phaseShift.Phases.begin(); itr != phaseShift.Phases.end(); ++itr)
+        for (PhaseRef const& phase : phaseShift.Phases)
         {
-            if (itr->Flags.HasFlag(excludePhasesWithFlag))
+            if (phase.Flags.HasFlag(excludePhasesWithFlag))
                 continue;
 
-            auto itr2 = std::find(excludedPhaseShift.Phases.begin(), excludedPhaseShift.Phases.end(), *itr);
-            if (itr2 == excludedPhaseShift.Phases.end() || itr2->Flags.HasFlag(excludePhasesWithFlag))
-                return true;
+            auto itr2 = std::find(excludedPhaseShift.Phases.begin(), excludedPhaseShift.Phases.end(), phase);
+            if (itr2 != excludedPhaseShift.Phases.end() && !itr2->Flags.HasFlag(excludePhasesWithFlag))
+                return false;
         }
-
-        return false;
+        return true;
     };
 
     if (other.Flags.HasFlag(PhaseShiftFlags::Inverse))
@@ -158,21 +165,39 @@ void PhaseShift::ModifyPhasesReferences(PhaseContainer::iterator itr, int32 refe
         else
             DefaultReferences += references;
 
+        if (itr->Flags.HasFlag(PhaseFlags::Personal))
+            PersonalReferences += references;
+
         if (CosmeticReferences)
             Flags |= PhaseShiftFlags::NoCosmetic;
         else
-            Flags &= ~EnumClassFlag<PhaseShiftFlags>(PhaseShiftFlags::NoCosmetic);
+            Flags &= ~PhaseShiftFlags::NoCosmetic;
 
         UpdateUnphasedFlag();
+        UpdatePersonalGuid();
     }
 }
 
 void PhaseShift::UpdateUnphasedFlag()
 {
-    EnumClassFlag<PhaseShiftFlags> unphasedFlag = !Flags.HasFlag(PhaseShiftFlags::Inverse) ? PhaseShiftFlags::Unphased : PhaseShiftFlags::InverseUnphased;
-    Flags &= ~EnumClassFlag<PhaseShiftFlags>(!Flags.HasFlag(PhaseShiftFlags::Inverse) ? PhaseShiftFlags::InverseUnphased : PhaseShiftFlags::Unphased);
+    EnumFlag<PhaseShiftFlags> unphasedFlag = !Flags.HasFlag(PhaseShiftFlags::Inverse) ? PhaseShiftFlags::Unphased : PhaseShiftFlags::InverseUnphased;
+    Flags &= ~(!Flags.HasFlag(PhaseShiftFlags::Inverse) ? PhaseShiftFlags::InverseUnphased : PhaseShiftFlags::Unphased);
     if (NonCosmeticReferences && !DefaultReferences)
         Flags &= ~unphasedFlag;
     else
         Flags |= unphasedFlag;
+}
+
+void PhaseShift::UpdatePersonalGuid()
+{
+    if (!PersonalReferences)
+        PersonalGuid.Clear();
+}
+
+bool PhaseShift::HasPersonalPhase() const
+{
+    for (PhaseRef const& phaseRef : GetPhases())
+        if (phaseRef.IsPersonal())
+            return true;
+    return false;
 }

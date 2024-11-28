@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -36,8 +36,8 @@ WorldPacket const* WorldPackets::Misc::InvalidatePlayer::Write()
 
 WorldPacket const* WorldPackets::Misc::LoginSetTimeSpeed::Write()
 {
-    _worldPacket.AppendPackedTime(ServerTime);
-    _worldPacket.AppendPackedTime(GameTime);
+    _worldPacket << ServerTime;
+    _worldPacket << GameTime;
     _worldPacket << float(NewSpeed);
     _worldPacket << uint32(ServerTimeHolidayOffset);
     _worldPacket << uint32(GameTimeHolidayOffset);
@@ -50,13 +50,23 @@ WorldPacket const* WorldPackets::Misc::SetCurrency::Write()
     _worldPacket << int32(Type);
     _worldPacket << int32(Quantity);
     _worldPacket << uint32(Flags);
-    _worldPacket.WriteBit(WeeklyQuantity.is_initialized());
-    _worldPacket.WriteBit(TrackedQuantity.is_initialized());
-    _worldPacket.WriteBit(MaxQuantity.is_initialized());
+    _worldPacket << uint32(Toasts.size());
+
+    for (WorldPackets::Item::UiEventToast const& toast : Toasts)
+        _worldPacket << toast;
+
+    _worldPacket.WriteBit(WeeklyQuantity.has_value());
+    _worldPacket.WriteBit(TrackedQuantity.has_value());
+    _worldPacket.WriteBit(MaxQuantity.has_value());
+    _worldPacket.WriteBit(TotalEarned.has_value());
     _worldPacket.WriteBit(SuppressChatLog);
-    _worldPacket.WriteBit(QuantityChange.is_initialized());
-    _worldPacket.WriteBit(QuantityGainSource.is_initialized());
-    _worldPacket.WriteBit(QuantityLostSource.is_initialized());
+    _worldPacket.WriteBit(QuantityChange.has_value());
+    _worldPacket.WriteBit(QuantityGainSource.has_value());
+    _worldPacket.WriteBit(QuantityLostSource.has_value());
+    _worldPacket.WriteBit(FirstCraftOperationID.has_value());
+    _worldPacket.WriteBit(NextRechargeTime.has_value());
+    _worldPacket.WriteBit(RechargeCycleStartTime.has_value());
+    _worldPacket.WriteBit(OverflownCurrencyID.has_value());
     _worldPacket.FlushBits();
 
     if (WeeklyQuantity)
@@ -68,6 +78,9 @@ WorldPacket const* WorldPackets::Misc::SetCurrency::Write()
     if (MaxQuantity)
         _worldPacket << int32(*MaxQuantity);
 
+    if (TotalEarned)
+        _worldPacket << int32(*TotalEarned);
+
     if (QuantityChange)
         _worldPacket << int32(*QuantityChange);
 
@@ -76,6 +89,18 @@ WorldPacket const* WorldPackets::Misc::SetCurrency::Write()
 
     if (QuantityLostSource)
         _worldPacket << int32(*QuantityLostSource);
+
+    if (FirstCraftOperationID)
+        _worldPacket << uint32(*FirstCraftOperationID);
+
+    if (NextRechargeTime)
+        _worldPacket << *NextRechargeTime;
+
+    if (RechargeCycleStartTime)
+        _worldPacket << *RechargeCycleStartTime;
+
+    if (OverflownCurrencyID)
+        _worldPacket << int32(*OverflownCurrencyID);
 
     return &_worldPacket;
 }
@@ -94,11 +119,14 @@ WorldPacket const* WorldPackets::Misc::SetupCurrency::Write()
         _worldPacket << int32(data.Type);
         _worldPacket << int32(data.Quantity);
 
-        _worldPacket.WriteBit(data.WeeklyQuantity.is_initialized());
-        _worldPacket.WriteBit(data.MaxWeeklyQuantity.is_initialized());
-        _worldPacket.WriteBit(data.TrackedQuantity.is_initialized());
-        _worldPacket.WriteBit(data.MaxQuantity.is_initialized());
-        _worldPacket.WriteBits(data.Flags, 5);
+        _worldPacket.WriteBit(data.WeeklyQuantity.has_value());
+        _worldPacket.WriteBit(data.MaxWeeklyQuantity.has_value());
+        _worldPacket.WriteBit(data.TrackedQuantity.has_value());
+        _worldPacket.WriteBit(data.MaxQuantity.has_value());
+        _worldPacket.WriteBit(data.TotalEarned.has_value());
+        _worldPacket.WriteBit(data.NextRechargeTime.has_value());
+        _worldPacket.WriteBit(data.RechargeCycleStartTime.has_value());
+        _worldPacket.WriteBits(uint8(data.Flags), 5);
         _worldPacket.FlushBits();
 
         if (data.WeeklyQuantity)
@@ -109,6 +137,12 @@ WorldPacket const* WorldPackets::Misc::SetupCurrency::Write()
             _worldPacket << uint32(*data.TrackedQuantity);
         if (data.MaxQuantity)
             _worldPacket << int32(*data.MaxQuantity);
+        if (data.TotalEarned)
+            _worldPacket << int32(*data.TotalEarned);
+        if (data.NextRechargeTime)
+            _worldPacket << *data.NextRechargeTime;
+        if (data.RechargeCycleStartTime)
+            _worldPacket << *data.RechargeCycleStartTime;
     }
 
     return &_worldPacket;
@@ -132,7 +166,7 @@ void WorldPackets::Misc::TimeSyncResponse::Read()
     _worldPacket >> ClientTime;
 }
 
-WorldPacket const* WorldPackets::Misc::UITime::Write()
+WorldPacket const* WorldPackets::Misc::ServerTimeOffset::Write()
 {
     _worldPacket << Time;
 
@@ -148,6 +182,7 @@ WorldPacket const* WorldPackets::Misc::TriggerMovie::Write()
 WorldPacket const* WorldPackets::Misc::TriggerCinematic::Write()
 {
     _worldPacket << uint32(CinematicID);
+    _worldPacket << ConversationGuid;
 
     return &_worldPacket;
 }
@@ -170,17 +205,18 @@ void WorldPackets::Misc::TutorialSetFlag::Read()
 WorldPacket const* WorldPackets::Misc::WorldServerInfo::Write()
 {
     _worldPacket << uint32(DifficultyID);
-    _worldPacket << uint8(IsTournamentRealm);
+    _worldPacket.WriteBit(IsTournamentRealm);
     _worldPacket.WriteBit(XRealmPvpAlert);
-    _worldPacket.WriteBit(RestrictedAccountMaxLevel.is_initialized());
-    _worldPacket.WriteBit(RestrictedAccountMaxMoney.is_initialized());
-    _worldPacket.WriteBit(InstanceGroupSize.is_initialized());
+    _worldPacket.WriteBit(BlockExitingLoadingScreen);
+    _worldPacket.WriteBit(RestrictedAccountMaxLevel.has_value());
+    _worldPacket.WriteBit(RestrictedAccountMaxMoney.has_value());
+    _worldPacket.WriteBit(InstanceGroupSize.has_value());
 
     if (RestrictedAccountMaxLevel)
         _worldPacket << uint32(*RestrictedAccountMaxLevel);
 
     if (RestrictedAccountMaxMoney)
-        _worldPacket << uint32(*RestrictedAccountMaxMoney);
+        _worldPacket << uint64(*RestrictedAccountMaxMoney);
 
     if (InstanceGroupSize)
         _worldPacket << uint32(*InstanceGroupSize);
@@ -312,13 +348,6 @@ WorldPacket const* WorldPackets::Misc::PlayerBound::Write()
     return &_worldPacket;
 }
 
-WorldPacket const* WorldPackets::Misc::BinderConfirm::Write()
-{
-    _worldPacket << Unit;
-
-    return &_worldPacket;
-}
-
 WorldPacket const* WorldPackets::Misc::StartMirrorTimer::Write()
 {
     _worldPacket << int32(Timer);
@@ -382,9 +411,11 @@ WorldPacket const* WorldPackets::Misc::PlayMusic::Write()
 
 void WorldPackets::Misc::RandomRollClient::Read()
 {
+    bool hasPartyIndex = _worldPacket.ReadBit();
     _worldPacket >> Min;
     _worldPacket >> Max;
-    _worldPacket >> PartyIndex;
+    if (hasPartyIndex)
+        _worldPacket >> PartyIndex.emplace();
 }
 
 WorldPacket const* WorldPackets::Misc::RandomRoll::Write()
@@ -398,9 +429,16 @@ WorldPacket const* WorldPackets::Misc::RandomRoll::Write()
     return &_worldPacket;
 }
 
+WorldPacket const* WorldPackets::Misc::EnableBarberShop::Write()
+{
+    _worldPacket << uint8(CustomizationScope);
+
+    return &_worldPacket;
+}
+
 ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Misc::PhaseShiftDataPhase const& phaseShiftDataPhase)
 {
-    data << uint16(phaseShiftDataPhase.PhaseFlags);
+    data << uint32(phaseShiftDataPhase.PhaseFlags);
     data << uint16(phaseShiftDataPhase.Id);
     return data;
 }
@@ -465,6 +503,7 @@ WorldPacket const* WorldPackets::Misc::PlayObjectSound::Write()
     _worldPacket << SourceObjectGUID;
     _worldPacket << TargetObjectGUID;
     _worldPacket << Position;
+    _worldPacket << int32(BroadcastTextID);
 
     return &_worldPacket;
 }
@@ -473,6 +512,7 @@ WorldPacket const* WorldPackets::Misc::PlaySound::Write()
 {
     _worldPacket << int32(SoundKitID);
     _worldPacket << SourceObjectGuid;
+    _worldPacket << int32(BroadcastTextID);
 
     return &_worldPacket;
 }
@@ -485,16 +525,16 @@ WorldPacket const* WorldPackets::Misc::PlaySpeakerbotSound::Write()
     return &_worldPacket;
 }
 
+WorldPacket const* WorldPackets::Misc::StopSpeakerbotSound::Write()
+{
+    _worldPacket << SourceObjectGUID;
+
+    return &_worldPacket;
+}
+
 void WorldPackets::Misc::FarSight::Read()
 {
     Enable = _worldPacket.ReadBit();
-}
-
-WorldPacket const* WorldPackets::Misc::Dismount::Write()
-{
-    _worldPacket << Guid;
-
-    return &_worldPacket;
 }
 
 void WorldPackets::Misc::SaveCUFProfiles::Read()
@@ -502,7 +542,7 @@ void WorldPackets::Misc::SaveCUFProfiles::Read()
     CUFProfiles.resize(_worldPacket.read<uint32>());
     for (std::unique_ptr<CUFProfile>& cufProfile : CUFProfiles)
     {
-        cufProfile = Trinity::make_unique<CUFProfile>();
+        cufProfile = std::make_unique<CUFProfile>();
 
         uint8 strLen = _worldPacket.ReadBits(7);
 
@@ -608,19 +648,24 @@ void WorldPackets::Misc::SetPvP::Read()
     EnablePVP = _worldPacket.ReadBit();
 }
 
+void WorldPackets::Misc::SetWarMode::Read()
+{
+    Enable = _worldPacket.ReadBit();
+}
+
 WorldPacket const* WorldPackets::Misc::AccountHeirloomUpdate::Write()
 {
     _worldPacket.WriteBit(IsFullUpdate);
     _worldPacket.FlushBits();
 
-    _worldPacket << int32(Unk);
+    _worldPacket << int32(ItemCollectionType);
 
     // both lists have to have the same size
-    _worldPacket << int32(Heirlooms->size());
-    _worldPacket << int32(Heirlooms->size());
+    _worldPacket << uint32(Heirlooms->size());
+    _worldPacket << uint32(Heirlooms->size());
 
     for (auto const& item : *Heirlooms)
-        _worldPacket << uint32(item.first);
+        _worldPacket << int32(item.first);
 
     for (auto const& flags : *Heirlooms)
         _worldPacket << uint32(flags.second.flags);
@@ -628,9 +673,22 @@ WorldPacket const* WorldPackets::Misc::AccountHeirloomUpdate::Write()
     return &_worldPacket;
 }
 
+void WorldPackets::Misc::MountSpecial::Read()
+{
+    SpellVisualKitIDs.resize(_worldPacket.read<uint32>());
+    _worldPacket >> SequenceVariation;
+    for (int32& spellVisualKitId : SpellVisualKitIDs)
+        _worldPacket >> spellVisualKitId;
+}
+
 WorldPacket const* WorldPackets::Misc::SpecialMountAnim::Write()
 {
     _worldPacket << UnitGUID;
+    _worldPacket << uint32(SpellVisualKitIDs.size());
+    _worldPacket << int32(SequenceVariation);
+    if (!SpellVisualKitIDs.empty())
+        _worldPacket.append(SpellVisualKitIDs.data(), SpellVisualKitIDs.size());
+
     return &_worldPacket;
 }
 
@@ -660,8 +718,8 @@ WorldPacket const* WorldPackets::Misc::OverrideLight::Write()
 WorldPacket const* WorldPackets::Misc::DisplayGameError::Write()
 {
     _worldPacket << uint32(Error);
-    _worldPacket.WriteBit(Arg.is_initialized());
-    _worldPacket.WriteBit(Arg2.is_initialized());
+    _worldPacket.WriteBit(Arg.has_value());
+    _worldPacket.WriteBit(Arg2.has_value());
     _worldPacket.FlushBits();
 
     if (Arg)
@@ -678,10 +736,10 @@ WorldPacket const* WorldPackets::Misc::AccountMountUpdate::Write()
     _worldPacket.WriteBit(IsFullUpdate);
     _worldPacket << uint32(Mounts->size());
 
-    for (auto const& spell : *Mounts)
+    for (auto [spellId, flags] : *Mounts)
     {
-        _worldPacket << int32(spell.first);
-        _worldPacket.WriteBits(spell.second, 2);
+        _worldPacket << int32(spellId);
+        _worldPacket.WriteBits(flags, 4);
     }
 
     _worldPacket.FlushBits();
@@ -698,4 +756,66 @@ void WorldPackets::Misc::MountSetFavorite::Read()
 void WorldPackets::Misc::CloseInteraction::Read()
 {
     _worldPacket >> SourceGuid;
+}
+
+WorldPacket const* WorldPackets::Misc::StartTimer::Write()
+{
+    _worldPacket << TotalTime;
+    _worldPacket << int32(Type);
+    _worldPacket << TimeLeft;
+    _worldPacket.WriteBit(PlayerGuid.has_value());
+    _worldPacket.FlushBits();
+
+    if (PlayerGuid)
+        _worldPacket << *PlayerGuid;
+
+    return &_worldPacket;
+}
+
+void WorldPackets::Misc::QueryCountdownTimer::Read()
+{
+    TimerType = _worldPacket.read<CountdownTimerType, int32>();
+}
+
+void WorldPackets::Misc::ConversationLineStarted::Read()
+{
+    _worldPacket >> ConversationGUID;
+    _worldPacket >> LineID;
+}
+
+WorldPacket const* WorldPackets::Misc::SplashScreenShowLatest::Write()
+{
+    _worldPacket << int32(UISplashScreenID);
+
+    return &_worldPacket;
+}
+
+WorldPacket const* WorldPackets::Misc::DisplayToast::Write()
+{
+    _worldPacket << uint64(Quantity);
+    _worldPacket << uint8(AsUnderlyingType(DisplayToastMethod));
+    _worldPacket << uint32(QuestID);
+
+    _worldPacket.WriteBit(Mailed);
+    _worldPacket.WriteBits(AsUnderlyingType(Type), 2);
+    _worldPacket.WriteBit(IsSecondaryResult);
+
+    switch (Type)
+    {
+        case DisplayToastType::NewItem:
+            _worldPacket.WriteBit(BonusRoll);
+            _worldPacket << Item;
+            _worldPacket << int32(LootSpec);
+            _worldPacket << int8(Gender);
+            break;
+        case DisplayToastType::NewCurrency:
+            _worldPacket << uint32(CurrencyID);
+            break;
+        default:
+            break;
+    }
+
+    _worldPacket.FlushBits();
+
+    return &_worldPacket;
 }

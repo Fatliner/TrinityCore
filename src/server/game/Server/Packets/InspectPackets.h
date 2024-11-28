@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -18,10 +18,13 @@
 #pragma once
 
 #include "Packet.h"
+#include "CharacterPackets.h"
 #include "DBCEnums.h"
 #include "ItemPacketsCommon.h"
 #include "ObjectGuid.h"
+#include "RaceMask.h"
 #include "SharedDefines.h"
+#include "TraitPacketsCommon.h"
 
 class Item;
 class Player;
@@ -44,7 +47,7 @@ namespace WorldPackets
         {
             InspectEnchantData(uint32 id, uint8 index) : Id(id), Index(index) { }
 
-            uint32 Id   = 0;
+            uint32 Id = 0;
             uint8 Index = 0;
         };
 
@@ -77,14 +80,9 @@ namespace WorldPackets
             std::string Name;
             int32 SpecializationID = 0;
             uint8 GenderID = GENDER_NONE;
-            uint8 Skin = 0;
-            uint8 HairColor = 0;
-            uint8 HairStyle = 0;
-            uint8 FacialHairStyle = 0;
-            uint8 Face = 0;
             uint8 Race = RACE_NONE;
             uint8 ClassID = CLASS_NONE;
-            std::array<uint8, PLAYER_CUSTOM_DISPLAY_SIZE> CustomDisplay;
+            std::vector<Character::ChrCustomizationChoice> Customizations;
 
             void Initialize(Player const* player);
         };
@@ -98,23 +96,38 @@ namespace WorldPackets
 
         struct PVPBracketData
         {
-            int32 Rating           = 0;
-            int32 Rank             = 0;
-            int32 WeeklyPlayed     = 0;
-            int32 WeeklyWon        = 0;
-            int32 SeasonPlayed     = 0;
-            int32 SeasonWon        = 0;
+            int32 Rating = 0;
+            int32 RatingID = 0;
+            int32 Rank = 0;
+            int32 WeeklyPlayed = 0;
+            int32 WeeklyWon = 0;
+            int32 SeasonPlayed = 0;
+            int32 SeasonWon = 0;
             int32 WeeklyBestRating = 0;
-            int32 Unk710           = 0;
-            int32 Unk801_1         = 0;
-            uint8 Bracket          = 0;
-            bool Unk801_2          = false;
+            int32 LastWeeksBestRating = 0;
+            int32 Tier = 0;
+            int32 WeeklyBestTier = 0;
+            int32 SeasonBestRating = 0;
+            int32 SeasonBestTierEnum = 0;
+            int32 RoundsSeasonPlayed = 0;
+            int32 RoundsSeasonWon = 0;
+            int32 RoundsWeeklyPlayed = 0;
+            int32 RoundsWeeklyWon = 0;
+            uint8 Bracket = 0;
+            bool Disqualified = false;
+        };
+
+        struct TraitInspectInfo
+        {
+            int32 Level = 0;
+            int32 ChrSpecializationID = 0;
+            Traits::TraitConfig Config;
         };
 
         class InspectResult final : public ServerPacket
         {
         public:
-            InspectResult() : ServerPacket(SMSG_INSPECT_RESULT, 45)
+            InspectResult() : ServerPacket(SMSG_INSPECT_RESULT, 4096)
             {
                 PvpTalents.fill(0);
             }
@@ -126,7 +139,7 @@ namespace WorldPackets
             std::vector<uint16> Talents;
             std::array<uint16, MAX_PVP_TALENT_SLOTS> PvpTalents;
             Optional<InspectGuildData> GuildData;
-            std::array<PVPBracketData, 6> Bracket;
+            std::array<PVPBracketData, 9> Bracket;
             Optional<int32> AzeriteLevel;
             int32 ItemLevel = 0;
             uint32 LifetimeHK = 0;
@@ -134,6 +147,7 @@ namespace WorldPackets
             uint16 TodayHK = 0;
             uint16 YesterdayHK = 0;
             uint8 LifetimeMaxRank = 0;
+            TraitInspectInfo TalentTraits;
         };
 
         class QueryInspectAchievements final : public ClientPacket

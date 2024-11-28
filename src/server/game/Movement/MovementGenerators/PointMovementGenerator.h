@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,7 +19,7 @@
 #define TRINITY_POINTMOVEMENTGENERATOR_H
 
 #include "MovementGenerator.h"
-#include "FollowerReference.h"
+#include "Position.h"
 
 class Creature;
 namespace Movement
@@ -28,62 +27,49 @@ namespace Movement
     struct SpellEffectExtraData;
 }
 
-template<class T>
-class PointMovementGenerator : public MovementGeneratorMedium< T, PointMovementGenerator<T> >
+class PointMovementGenerator : public MovementGenerator
 {
     public:
-        PointMovementGenerator(uint32 _id, float _x, float _y, float _z, bool _generatePath, float _speed = 0.0f, Unit const* faceTarget = nullptr,
-            Movement::SpellEffectExtraData const* spellEffectExtraData = nullptr) : id(_id),
-            i_x(_x), i_y(_y), i_z(_z), speed(_speed), i_faceTarget(faceTarget), i_spellEffectExtra(spellEffectExtraData),
-            m_generatePath(_generatePath), i_recalculateSpeed(false) { }
+        explicit PointMovementGenerator(uint32 id, float x, float y, float z, bool generatePath, Optional<float> speed = {}, Optional<float> finalOrient = {},
+            Unit const* faceTarget = nullptr, Movement::SpellEffectExtraData const* spellEffectExtraData = nullptr,
+            MovementWalkRunSpeedSelectionMode speedSelectionMode = MovementWalkRunSpeedSelectionMode::Default,
+            Optional<float> closeEnoughDistance = {},
+            Optional<Scripting::v2::ActionResultSetter<MovementStopReason>>&& scriptResult = {});
 
-        void DoInitialize(T*);
-        void DoFinalize(T*);
-        void DoReset(T*);
-        bool DoUpdate(T*, uint32);
+        MovementGeneratorType GetMovementGeneratorType() const override;
 
-        void MovementInform(T*);
+        void Initialize(Unit* owner) override;
+        void Reset(Unit* owner) override;
+        bool Update(Unit* owner, uint32 diff) override;
+        void Deactivate(Unit* owner) override;
+        void Finalize(Unit* owner, bool active, bool movementInform) override;
 
-        void unitSpeedChanged() override { i_recalculateSpeed = true; }
+        void UnitSpeedChanged() override { AddFlag(MOVEMENTGENERATOR_FLAG_SPEED_UPDATE_PENDING); }
 
-        MovementGeneratorType GetMovementGeneratorType() const override { return POINT_MOTION_TYPE; }
+        uint32 GetId() const { return _movementId; }
 
-        void GetDestination(float& x, float& y, float& z) const { x = i_x; y = i_y; z = i_z; }
     private:
-        uint32 id;
-        float i_x, i_y, i_z;
-        float speed;
+        void MovementInform(Unit*);
+
+        uint32 _movementId;
+        Position _destination;
+        Optional<float> _speed;
+        bool _generatePath;
+        //! if set then unit will turn to specified _orient in provided _pos
+        Optional<float> _finalOrient;
         Unit const* i_faceTarget;
-        Movement::SpellEffectExtraData const* i_spellEffectExtra;
-        bool m_generatePath;
-        bool i_recalculateSpeed;
+        std::unique_ptr<Movement::SpellEffectExtraData> i_spellEffectExtra;
+        MovementWalkRunSpeedSelectionMode _speedSelectionMode;
+        Optional<float> _closeEnoughDistance;
 };
 
-class AssistanceMovementGenerator : public PointMovementGenerator<Creature>
+class AssistanceMovementGenerator : public PointMovementGenerator
 {
     public:
-        AssistanceMovementGenerator(float _x, float _y, float _z) :
-            PointMovementGenerator<Creature>(0, _x, _y, _z, true) { }
+        explicit AssistanceMovementGenerator(uint32 id, float x, float y, float z) : PointMovementGenerator(id, x, y, z, true) { }
 
-        MovementGeneratorType GetMovementGeneratorType() const override { return ASSISTANCE_MOTION_TYPE; }
-        void Finalize(Unit*) override;
-};
-
-// Does almost nothing - just doesn't allows previous movegen interrupt current effect.
-class EffectMovementGenerator : public MovementGenerator
-{
-    public:
-        EffectMovementGenerator(uint32 id, uint32 arrivalSpellId = 0, ObjectGuid const& arrivalSpellTargetGuid = ObjectGuid::Empty)
-            : _id(id), _arrivalSpellId(arrivalSpellId), _arrivalSpellTargetGuid(arrivalSpellTargetGuid) { }
-        void Initialize(Unit*) override { }
-        void Finalize(Unit*) override;
-        void Reset(Unit*) override { }
-        bool Update(Unit*, uint32) override;
-        MovementGeneratorType GetMovementGeneratorType() const override { return EFFECT_MOTION_TYPE; }
-    private:
-        uint32 _id;
-        uint32 _arrivalSpellId;
-        ObjectGuid _arrivalSpellTargetGuid;
+        void Finalize(Unit* owner, bool active, bool movementInform) override;
+        MovementGeneratorType GetMovementGeneratorType() const override;
 };
 
 #endif

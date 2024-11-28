@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -24,12 +23,32 @@
 #define RFKScriptName "instance_razorfen_kraul"
 #define DataHeader "RFK"
 
+enum RFKBossIds
+{
+    BOSS_HUNTER_BONETUSK            = 0,
+    BOSS_ROOGUG                     = 1,
+    BOSS_WARLORD_RAMTUSK            = 2,
+    BOSS_GROYAT_THE_BLIND_HUNTER    = 3,
+    BOSS_CHARLGA_RAZORFLANK         = 4,
+
+    MAX_ENCOUNTER
+};
+
+enum RFKCreatureIds
+{
+    NPC_HUNTER_BONETUSK         = 75001,
+    NPC_ROOGUG                  = 6168,
+    NPC_WARLORD_RAMTUSK         = 74462,
+    NPC_GROYAT_THE_BLIND_HUNTER = 75247,
+    NPC_CHARLGA_RAZORFLANK      = 4421,
+};
+
 #define EVENT_WARD_KEEPER 1
 
-template<typename AI>
-inline AI* GetRazorfenKraulAI(Creature* creature)
+template <class AI, class T>
+inline AI* GetRazorfenKraulAI(T* obj)
 {
-    return GetInstanceAI<AI>(creature, RFKScriptName);
+    return GetInstanceAI<AI>(obj, RFKScriptName);
 }
 
 #endif

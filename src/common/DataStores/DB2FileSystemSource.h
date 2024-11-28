@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -24,6 +24,10 @@
 struct TC_COMMON_API DB2FileSystemSource : public DB2FileSource
 {
     DB2FileSystemSource(std::string const& fileName);
+    DB2FileSystemSource(DB2FileSystemSource const& other) = delete;
+    DB2FileSystemSource(DB2FileSystemSource&& other) noexcept = delete;
+    DB2FileSystemSource& operator=(DB2FileSystemSource const& other) = delete;
+    DB2FileSystemSource& operator=(DB2FileSystemSource&& other) noexcept = delete;
     ~DB2FileSystemSource();
     bool IsOpen() const override;
     bool Read(void* buffer, std::size_t numBytes) override;
@@ -31,6 +35,7 @@ struct TC_COMMON_API DB2FileSystemSource : public DB2FileSource
     bool SetPosition(int64 position) override;
     int64 GetFileSize() const override;
     char const* GetFileName() const override;
+    DB2EncryptedSectionHandling HandleEncryptedSection(DB2SectionHeader const& sectionHeader) const override;
 
 private:
     std::string _fileName;

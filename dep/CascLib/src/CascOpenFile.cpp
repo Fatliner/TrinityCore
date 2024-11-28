@@ -41,7 +41,7 @@ TCascFile::TCascFile(TCascStorage * ahs, PCASC_CKEY_ENTRY apCKeyEntry)
 TCascFile::~TCascFile()
 {
     // Free all stuff related to file spans
-    if (pFileSpan != NULL)
+    if(pFileSpan != NULL)
     {
         PCASC_FILE_SPAN pSpanPtr = pFileSpan;
 
@@ -85,7 +85,7 @@ DWORD TCascFile::OpenFileSpans(LPCTSTR szSpanList)
         pFileSpan[i].pStream = pStream = FileStream_OpenFile(szSpanList, BASE_PROVIDER_FILE | STREAM_PROVIDER_FLAT);
         if(pFileSpan[i].pStream == NULL)
         {
-            dwErrCode = GetLastError();
+            dwErrCode = GetCascError();
             break;
         }
 
@@ -215,7 +215,7 @@ bool OpenFileByCKeyEntry(TCascStorage * hs, PCASC_CKEY_ENTRY pCKeyEntry, DWORD d
 
     // Handle last error
     if(dwErrCode != ERROR_SUCCESS)
-        SetLastError(dwErrCode);
+        SetCascError(dwErrCode);
     return (dwErrCode == ERROR_SUCCESS);
 }
 
@@ -275,7 +275,7 @@ bool OpenLocalFile(LPCTSTR szFileName, DWORD dwOpenFlags, HANDLE * PtrFileHandle
 
     // Handle last error
     if(dwErrCode != ERROR_SUCCESS)
-        SetLastError(dwErrCode);
+        SetCascError(dwErrCode);
     return (dwErrCode == ERROR_SUCCESS);
 }
 
@@ -318,14 +318,14 @@ bool WINAPI CascOpenFile(HANDLE hStorage, const void * pvFileName, DWORD dwLocal
     hs = TCascStorage::IsValid(hStorage);
     if(hs == NULL)
     {
-        SetLastError(ERROR_INVALID_HANDLE);
+        SetCascError(ERROR_INVALID_HANDLE);
         return false;
     }
 
     // Validate the other parameters
     if(PtrFileHandle == NULL)
     {
-        SetLastError(ERROR_INVALID_PARAMETER);
+        SetCascError(ERROR_INVALID_PARAMETER);
         return false;
     }
 
@@ -338,7 +338,7 @@ bool WINAPI CascOpenFile(HANDLE hStorage, const void * pvFileName, DWORD dwLocal
             szFileName = (const char *)pvFileName;
             if(szFileName == NULL || szFileName[0] == 0)
             {
-                SetLastError(ERROR_INVALID_PARAMETER);
+                SetCascError(ERROR_INVALID_PARAMETER);
                 return false;
             }
 
@@ -367,7 +367,7 @@ bool WINAPI CascOpenFile(HANDLE hStorage, const void * pvFileName, DWORD dwLocal
                     break;
             }
 
-            SetLastError(ERROR_FILE_NOT_FOUND);
+            SetCascError(ERROR_FILE_NOT_FOUND);
             return false;
 
         case CASC_OPEN_BY_CKEY:
@@ -375,7 +375,7 @@ bool WINAPI CascOpenFile(HANDLE hStorage, const void * pvFileName, DWORD dwLocal
             // The 'pvFileName' must be a pointer to 16-byte CKey or EKey
             if(pvFileName == NULL)
             {
-                SetLastError(ERROR_INVALID_PARAMETER);
+                SetCascError(ERROR_INVALID_PARAMETER);
                 return false;
             }
 
@@ -388,7 +388,7 @@ bool WINAPI CascOpenFile(HANDLE hStorage, const void * pvFileName, DWORD dwLocal
             // The 'pvFileName' must be a pointer to 16-byte CKey or EKey
             if(pvFileName == NULL)
             {
-                SetLastError(ERROR_INVALID_PARAMETER);
+                SetCascError(ERROR_INVALID_PARAMETER);
                 return false;
             }
 
@@ -409,6 +409,21 @@ bool WINAPI CascOpenFile(HANDLE hStorage, const void * pvFileName, DWORD dwLocal
             break;
     }
 
+    // Check opening unique file
+    if(dwOpenFlags & CASC_OPEN_CKEY_ONCE)
+    {
+        // Was the file already open since CascOpenStorage?
+        if(pCKeyEntry->Flags & CASC_CE_OPEN_CKEY_ONCE)
+        {
+            SetCascError(ERROR_CKEY_ALREADY_OPENED);
+            return false;
+        }
+        else
+        {
+            pCKeyEntry->Flags |= CASC_CE_OPEN_CKEY_ONCE;
+        }
+    }
+
     // Perform the open operation
     return OpenFileByCKeyEntry(hs, pCKeyEntry, dwOpenFlags, PtrFileHandle);
 }
@@ -418,7 +433,7 @@ bool WINAPI CascOpenLocalFile(LPCTSTR szFileName, DWORD dwOpenFlags, HANDLE * Pt
     // Verify parameters
     if(szFileName == NULL || szFileName[0] == 0 || PtrFileHandle == NULL)
     {
-        SetLastError(ERROR_INVALID_PARAMETER);
+        SetCascError(ERROR_INVALID_PARAMETER);
         return false;
     }
 
@@ -430,13 +445,13 @@ bool WINAPI CascCloseFile(HANDLE hFile)
     TCascFile * hf;
 
     hf = TCascFile::IsValid(hFile);
-    if (hf != NULL)
+    if(hf != NULL)
     {
         delete hf;
         return true;
     }
 
-    SetLastError(ERROR_INVALID_HANDLE);
+    SetCascError(ERROR_INVALID_HANDLE);
     return false;
 }
 

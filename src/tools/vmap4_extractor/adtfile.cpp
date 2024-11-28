@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,15 +18,15 @@
 #include "vmapexport.h"
 #include "adtfile.h"
 #include "StringFormat.h"
-#include <algorithm>
 #include <cstdio>
 #include "Errors.h"
+#include "Memory.h"
 
 char const* GetPlainName(char const* FileName)
 {
     const char * szTemp;
 
-    if((szTemp = strrchr(FileName, '\\')) != NULL)
+    if((szTemp = strrchr(FileName, '\\')) != nullptr)
         FileName = szTemp + 1;
     return FileName;
 }
@@ -36,7 +35,7 @@ char* GetPlainName(char* FileName)
 {
     char * szTemp;
 
-    if((szTemp = strrchr(FileName, '\\')) != NULL)
+    if((szTemp = strrchr(FileName, '\\')) != nullptr)
         FileName = szTemp + 1;
     return FileName;
 }
@@ -68,14 +67,23 @@ void FixNameSpaces(char* name, size_t len)
             name[i] = '_';
 }
 
+void NormalizeFileName(char* name, size_t len)
+{
+    if (len >= 4 && !memcmp(name, "FILE", 4)) // name is FileDataId formatted, do not normalize
+        return;
+
+    FixNameCase(name, len);
+    FixNameSpaces(name, len);
+}
+
 char* GetExtension(char* FileName)
 {
     if (char* szTemp = strrchr(FileName, '.'))
         return szTemp;
-    return NULL;
+    return nullptr;
 }
 
-extern CASC::StorageHandle CascStorage;
+extern std::shared_ptr<CASC::Storage> CascStorage;
 
 ADTFile::ADTFile(std::string const& filename, bool cache) : _file(CascStorage, filename.c_str(), false)
 {
@@ -98,8 +106,8 @@ bool ADTFile::init(uint32 map_num, uint32 originalMapId)
         return false;
 
     uint32 size;
-    std::string dirname = std::string(szWorkDirWmo) + "/dir_bin";
-    FILE* dirfile = fopen(dirname.c_str(), "ab");
+    std::string dirname = Trinity::StringFormat("{}/dir_bin/{:04}", szWorkDirWmo, map_num);
+    auto dirfile = Trinity::make_unique_ptr_with_deleter<&::fclose>(fopen(dirname.c_str(), "ab"));
     if(!dirfile)
     {
         printf("Can't open dirfile!'%s'\n", dirname.c_str());
@@ -131,8 +139,7 @@ bool ADTFile::init(uint32 map_num, uint32 originalMapId)
                     std::string path(p);
 
                     char* s = GetPlainName(p);
-                    FixNameCase(s, strlen(s));
-                    FixNameSpaces(s, strlen(s));
+                    NormalizeFileName(s, strlen(s));
 
                     ModelInstanceNames.emplace_back(s);
 
@@ -155,8 +162,7 @@ bool ADTFile::init(uint32 map_num, uint32 originalMapId)
                     std::string path(p);
 
                     char* s = GetPlainName(p);
-                    FixNameCase(s, strlen(s));
-                    FixNameSpaces(s, strlen(s));
+                    NormalizeFileName(s, strlen(s));
 
                     WmoInstanceNames.emplace_back(s);
 
@@ -179,13 +185,13 @@ bool ADTFile::init(uint32 map_num, uint32 originalMapId)
                     _file.read(&doodadDef, sizeof(ADT::MDDF));
                     if (!(doodadDef.Flags & 0x40))
                     {
-                        Doodad::Extract(doodadDef, ModelInstanceNames[doodadDef.Id].c_str(), map_num, originalMapId, dirfile, dirfileCache);
+                        Doodad::Extract(doodadDef, ModelInstanceNames[doodadDef.Id].c_str(), map_num, originalMapId, dirfile.get(), dirfileCache);
                     }
                     else
                     {
-                        std::string fileName = Trinity::StringFormat("FILE%08X.xxx", doodadDef.Id);
+                        std::string fileName = Trinity::StringFormat("FILE{:08X}.xxx", doodadDef.Id);
                         ExtractSingleModel(fileName);
-                        Doodad::Extract(doodadDef, fileName.c_str(), map_num, originalMapId, dirfile, dirfileCache);
+                        Doodad::Extract(doodadDef, fileName.c_str(), map_num, originalMapId, dirfile.get(), dirfileCache);
                     }
                 }
 
@@ -203,15 +209,15 @@ bool ADTFile::init(uint32 map_num, uint32 originalMapId)
                     _file.read(&mapObjDef, sizeof(ADT::MODF));
                     if (!(mapObjDef.Flags & 0x8))
                     {
-                        MapObject::Extract(mapObjDef, WmoInstanceNames[mapObjDef.Id].c_str(), false, map_num, originalMapId, dirfile, dirfileCache);
-                        Doodad::ExtractSet(WmoDoodads[WmoInstanceNames[mapObjDef.Id]], mapObjDef, false, map_num, originalMapId, dirfile, dirfileCache);
+                        MapObject::Extract(mapObjDef, WmoInstanceNames[mapObjDef.Id].c_str(), false, map_num, originalMapId, dirfile.get(), dirfileCache);
+                        Doodad::ExtractSet(WmoDoodads[WmoInstanceNames[mapObjDef.Id]], mapObjDef, false, map_num, originalMapId, dirfile.get(), dirfileCache);
                     }
                     else
                     {
-                        std::string fileName = Trinity::StringFormat("FILE%08X.xxx", mapObjDef.Id);
+                        std::string fileName = Trinity::StringFormat("FILE{:08X}.xxx", mapObjDef.Id);
                         ExtractSingleWmo(fileName);
-                        MapObject::Extract(mapObjDef, fileName.c_str(), false, map_num, originalMapId, dirfile, dirfileCache);
-                        Doodad::ExtractSet(WmoDoodads[fileName], mapObjDef, false, map_num, originalMapId, dirfile, dirfileCache);
+                        MapObject::Extract(mapObjDef, fileName.c_str(), false, map_num, originalMapId, dirfile.get(), dirfileCache);
+                        Doodad::ExtractSet(WmoDoodads[fileName], mapObjDef, false, map_num, originalMapId, dirfile.get(), dirfileCache);
                     }
                 }
 
@@ -224,7 +230,6 @@ bool ADTFile::init(uint32 map_num, uint32 originalMapId)
     }
 
     _file.close();
-    fclose(dirfile);
     return true;
 }
 
@@ -233,8 +238,8 @@ bool ADTFile::initFromCache(uint32 map_num, uint32 originalMapId)
     if (dirfileCache->empty())
         return true;
 
-    std::string dirname = std::string(szWorkDirWmo) + "/dir_bin";
-    FILE* dirfile = fopen(dirname.c_str(), "ab");
+    std::string dirname = Trinity::StringFormat("{}/dir_bin/{:04}", szWorkDirWmo, map_num);
+    auto dirfile = Trinity::make_unique_ptr_with_deleter<&::fclose>(fopen(dirname.c_str(), "ab"));
     if (!dirfile)
     {
         printf("Can't open dirfile!'%s'\n", dirname.c_str());
@@ -243,15 +248,13 @@ bool ADTFile::initFromCache(uint32 map_num, uint32 originalMapId)
 
     for (ADTOutputCache const& cached : *dirfileCache)
     {
-        fwrite(&map_num, sizeof(uint32), 1, dirfile);
-        uint32 flags = cached.Flags;
+        uint8 flags = cached.Flags;
         if (map_num != originalMapId)
             flags |= MOD_PARENT_SPAWN;
-        fwrite(&flags, sizeof(uint32), 1, dirfile);
-        fwrite(cached.Data.data(), cached.Data.size(), 1, dirfile);
+        fwrite(&flags, sizeof(uint8), 1, dirfile.get());
+        fwrite(cached.Data.data(), cached.Data.size(), 1, dirfile.get());
     }
 
-    fclose(dirfile);
     return true;
 }
 

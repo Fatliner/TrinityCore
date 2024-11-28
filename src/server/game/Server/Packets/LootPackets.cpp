@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -46,8 +46,9 @@ WorldPacket const* WorldPackets::Loot::LootResponse::Write()
     _worldPacket << uint32(Coins);
     _worldPacket << uint32(Items.size());
     _worldPacket << uint32(Currencies.size());
-    _worldPacket.WriteBit(Acquired);
-    _worldPacket.WriteBit(AELooting);
+    _worldPacket << Bits<1>(Acquired);
+    _worldPacket << Bits<1>(AELooting);
+    _worldPacket << Bits<1>(SuppressError);
     _worldPacket.FlushBits();
 
     for (LootItemData const& item : Items)
@@ -76,6 +77,22 @@ void WorldPackets::Loot::LootItem::Read()
         _worldPacket >> Loot[i].Object;
         _worldPacket >> Loot[i].LootListID;
     }
+
+    IsSoftInteract = _worldPacket.ReadBit();
+}
+
+void WorldPackets::Loot::MasterLootItem::Read()
+{
+    uint32 Count;
+    _worldPacket >> Count;
+    _worldPacket >> Target;
+
+    Loot.resize(Count);
+    for (uint32 i = 0; i < Count; ++i)
+    {
+        _worldPacket >> Loot[i].Object;
+        _worldPacket >> Loot[i].LootListID;
+    }
 }
 
 WorldPacket const* WorldPackets::Loot::LootRemoved::Write()
@@ -90,6 +107,11 @@ WorldPacket const* WorldPackets::Loot::LootRemoved::Write()
 void WorldPackets::Loot::LootRelease::Read()
 {
     _worldPacket >> Unit;
+}
+
+void WorldPackets::Loot::LootMoney::Read()
+{
+    IsSoftInteract = _worldPacket.ReadBit();
 }
 
 WorldPacket const* WorldPackets::Loot::LootMoneyNotify::Write()
@@ -129,8 +151,8 @@ WorldPacket const* WorldPackets::Loot::LootList::Write()
     _worldPacket << Owner;
     _worldPacket << LootObj;
 
-    _worldPacket.WriteBit(Master.is_initialized());
-    _worldPacket.WriteBit(RoundRobinWinner.is_initialized());
+    _worldPacket.WriteBit(Master.has_value());
+    _worldPacket.WriteBit(RoundRobinWinner.has_value());
 
     _worldPacket.FlushBits();
 
@@ -152,9 +174,11 @@ WorldPacket const* WorldPackets::Loot::StartLootRoll::Write()
 {
     _worldPacket << LootObj;
     _worldPacket << int32(MapID);
-    _worldPacket << uint32(RollTime);
+    _worldPacket << RollTime;
     _worldPacket << uint8(ValidRolls);
+    _worldPacket.append(LootRollIneligibleReason.data(), LootRollIneligibleReason.size());
     _worldPacket << uint8(Method);
+    _worldPacket << int32(DungeonEncounterID);
     _worldPacket << Item;
 
     return &_worldPacket;
@@ -166,8 +190,10 @@ WorldPacket const* WorldPackets::Loot::LootRollBroadcast::Write()
     _worldPacket << Player;
     _worldPacket << int32(Roll);
     _worldPacket << uint8(RollType);
+    _worldPacket << int32(DungeonEncounterID);
     _worldPacket << Item;
     _worldPacket.WriteBit(Autopassed);
+    _worldPacket.WriteBit(OffSpec);
     _worldPacket.FlushBits();
 
     return &_worldPacket;
@@ -179,6 +205,7 @@ WorldPacket const* WorldPackets::Loot::LootRollWon::Write()
     _worldPacket << Winner;
     _worldPacket << int32(Roll);
     _worldPacket << uint8(RollType);
+    _worldPacket << int32(DungeonEncounterID);
     _worldPacket << Item;
     _worldPacket.WriteBit(MainSpec);
     _worldPacket.FlushBits();
@@ -189,6 +216,7 @@ WorldPacket const* WorldPackets::Loot::LootRollWon::Write()
 WorldPacket const* WorldPackets::Loot::LootAllPassed::Write()
 {
     _worldPacket << LootObj;
+    _worldPacket << int32(DungeonEncounterID);
     _worldPacket << Item;
 
     return &_worldPacket;
@@ -198,6 +226,17 @@ WorldPacket const* WorldPackets::Loot::LootRollsComplete::Write()
 {
     _worldPacket << LootObj;
     _worldPacket << uint8(LootListID);
+    _worldPacket << int32(DungeonEncounterID);
+
+    return &_worldPacket;
+}
+
+WorldPacket const* WorldPackets::Loot::MasterLootCandidateList::Write()
+{
+    _worldPacket << LootObj;
+    _worldPacket << uint32(Players.size());
+    for (ObjectGuid const& player : Players)
+        _worldPacket << player;
 
     return &_worldPacket;
 }

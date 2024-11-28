@@ -1,4 +1,4 @@
-# Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+# This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
 #
 # This file is free software; as a special exception the author gives
 # unlimited permission to copy and/or distribute it, with or without
@@ -74,10 +74,10 @@ target_link_libraries(protobuf
 if (BUILD_SHARED_LIBS)
   target_compile_definitions(protobuf
     PRIVATE
-      -DLIBPROTOBUF_EXPORTS
-      -DLIBPROTOC_EXPORTS
+      LIBPROTOBUF_EXPORTS
+      LIBPROTOC_EXPORTS
     PUBLIC
-      -DPROTOBUF_USE_DLLS)
+      PROTOBUF_USE_DLLS)
 endif()
 
 if (MSVC)
@@ -87,7 +87,7 @@ if (MSVC)
 
   target_compile_definitions(protobuf
     PRIVATE
-      -D_SCL_SECURE_NO_WARNINGS)
+      _SCL_SECURE_NO_WARNINGS)
 endif()
 
 set_target_properties(protobuf

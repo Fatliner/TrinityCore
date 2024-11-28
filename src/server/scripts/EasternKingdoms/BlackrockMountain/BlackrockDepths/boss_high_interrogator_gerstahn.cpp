@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,6 +16,7 @@
  */
 
 #include "ScriptMgr.h"
+#include "blackrock_depths.h"
 #include "ScriptedCreature.h"
 
 enum Spells
@@ -39,21 +40,17 @@ class boss_high_interrogator_gerstahn : public CreatureScript
     public:
         boss_high_interrogator_gerstahn() : CreatureScript("boss_high_interrogator_gerstahn") { }
 
-        struct boss_high_interrogator_gerstahnAI : public ScriptedAI
+        struct boss_high_interrogator_gerstahnAI : public BossAI
         {
-            boss_high_interrogator_gerstahnAI(Creature* creature) : ScriptedAI(creature) { }
+            boss_high_interrogator_gerstahnAI(Creature* creature) : BossAI(creature, BOSS_HIGH_INTERROGATOR_GERSTAHN) { }
 
-            void Reset() override
+            void JustEngagedWith(Unit* who) override
             {
-                _events.Reset();
-            }
-
-            void EnterCombat(Unit* /*who*/) override
-            {
-                _events.ScheduleEvent(EVENT_SHADOW_WORD_PAIN, 4000);
-                _events.ScheduleEvent(EVENT_MANABURN, 14000);
-                _events.ScheduleEvent(EVENT_PSYCHIC_SCREAM, 32000);
-                _events.ScheduleEvent(EVENT_SHADOWSHIELD, 8000);
+                _JustEngagedWith(who);
+                events.ScheduleEvent(EVENT_SHADOW_WORD_PAIN, 4s);
+                events.ScheduleEvent(EVENT_MANABURN, 14s);
+                events.ScheduleEvent(EVENT_PSYCHIC_SCREAM, 32s);
+                events.ScheduleEvent(EVENT_SHADOWSHIELD, 8s);
             }
 
             void UpdateAI(uint32 diff) override
@@ -61,45 +58,40 @@ class boss_high_interrogator_gerstahn : public CreatureScript
                 if (!UpdateVictim())
                     return;
 
-                _events.Update(diff);
+                events.Update(diff);
 
-                while (uint32 eventId = _events.ExecuteEvent())
+                while (uint32 eventId = events.ExecuteEvent())
                 {
                     switch (eventId)
                     {
                         case EVENT_SHADOW_WORD_PAIN:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 100.0f, true))
                                 DoCast(target, SPELL_SHADOWWORDPAIN);
-                            _events.ScheduleEvent(EVENT_SHADOW_WORD_PAIN, 7000);
+                            events.ScheduleEvent(EVENT_SHADOW_WORD_PAIN, 7s);
                             break;
                         case EVENT_PSYCHIC_SCREAM:
                             DoCastVictim(SPELL_PSYCHICSCREAM);
-                            _events.ScheduleEvent(EVENT_PSYCHIC_SCREAM, 30000);
+                            events.ScheduleEvent(EVENT_PSYCHIC_SCREAM, 30s);
                             break;
                         case EVENT_MANABURN:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 100.0f, true))
                                 DoCast(target, SPELL_MANABURN);
-                            _events.ScheduleEvent(EVENT_MANABURN, 10000);
+                            events.ScheduleEvent(EVENT_MANABURN, 10s);
                             break;
                         case EVENT_SHADOWSHIELD:
                             DoCast(me, SPELL_SHADOWSHIELD);
-                            _events.ScheduleEvent(EVENT_SHADOWSHIELD, 25000);
+                            events.ScheduleEvent(EVENT_SHADOWSHIELD, 25s);
                             break;
                         default:
                             break;
                     }
                 }
-
-                DoMeleeAttackIfReady();
             }
-
-        private:
-            EventMap _events;
         };
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new boss_high_interrogator_gerstahnAI(creature);
+            return GetBlackrockDepthsAI<boss_high_interrogator_gerstahnAI>(creature);
         }
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -65,9 +65,9 @@ namespace Trainer
     class Trainer
     {
     public:
-        Trainer(uint32 id, Type type, std::string greeting, std::vector<Spell> spells);
+        Trainer(uint32 id, Type type, std::string_view greeting, std::vector<Spell> spells);
 
-        void SendSpells(Creature const* npc, Player const* player, LocaleConstant locale) const;
+        void SendSpells(Creature const* npc, Player* player, LocaleConstant locale) const;
         void TeachSpell(Creature const* npc, Player* player, uint32 spellId) const;
 
     private:
@@ -78,7 +78,7 @@ namespace Trainer
         std::string const& GetGreeting(LocaleConstant locale) const;
 
         friend ObjectMgr;
-        void AddGreetingLocale(LocaleConstant locale, std::string greeting);
+        void AddGreetingLocale(LocaleConstant locale, std::string_view greeting);
 
         uint32 _id;
         Type _type;

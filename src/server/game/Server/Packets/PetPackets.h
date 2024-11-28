@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,6 +19,7 @@
 #define PetPackets_h__
 
 #include "Packet.h"
+#include "PetDefines.h"
 #include "Position.h"
 #include "ObjectGuid.h"
 #include "Optional.h"
@@ -55,6 +56,16 @@ namespace WorldPackets
             void Read() override;
 
             ObjectGuid Pet;
+        };
+
+        class PetAbandonByNumber final : public ClientPacket
+        {
+        public:
+            PetAbandonByNumber(WorldPacket&& packet) : ClientPacket(CMSG_PET_ABANDON_BY_NUMBER, std::move(packet)) { }
+
+            void Read() override;
+
+            uint32 PetNumber = 0;
         };
 
         class PetStopAttack final : public ClientPacket
@@ -118,26 +129,14 @@ namespace WorldPackets
             std::vector<PetSpellHistory> SpellHistory;
         };
 
-        struct PetStableInfo
-        {
-            uint32 PetSlot = 0;
-            uint32 PetNumber = 0;
-            uint32 CreatureID = 0;
-            uint32 DisplayID = 0;
-            uint32 ExperienceLevel = 0;
-            uint8 PetFlags = 0;
-            std::string PetName;
-        };
-
-        class PetStableList final : public ServerPacket
+        class PetStableResult final : public ServerPacket
         {
         public:
-            PetStableList() : ServerPacket(SMSG_PET_STABLE_LIST, 18 + 2) { }
+            PetStableResult() : ServerPacket(SMSG_PET_STABLE_RESULT, 1) { }
 
             WorldPacket const* Write() override;
 
-            ObjectGuid StableMaster;
-            std::vector<PetStableInfo> Pets;
+            uint8 Result = 0;
         };
 
         class PetLearnedSpells final : public ServerPacket
@@ -237,6 +236,50 @@ namespace WorldPackets
             uint16 SpecID = 0;
         };
 
+        class PetActionFeedback final : public ServerPacket
+        {
+        public:
+            PetActionFeedback() : ServerPacket(SMSG_PET_ACTION_FEEDBACK, 4 + 1) { }
+
+            WorldPacket const* Write() override;
+
+            int32 SpellID = 0;
+            ::PetActionFeedback Response = ::PetActionFeedback::None;
+        };
+
+        class PetActionSound final : public ServerPacket
+        {
+        public:
+            PetActionSound() : ServerPacket(SMSG_PET_ACTION_SOUND, 18 + 4) { }
+
+            WorldPacket const* Write() override;
+
+            ObjectGuid UnitGUID;
+            int32 Action = 0;
+        };
+
+        class PetTameFailure final : public ServerPacket
+        {
+        public:
+            PetTameFailure() : ServerPacket(SMSG_PET_TAME_FAILURE, 1) { }
+
+            WorldPacket const* Write() override;
+
+            uint8 Result = 0;
+        };
+
+        class PetMode final : public ServerPacket
+        {
+        public:
+            PetMode() : ServerPacket(SMSG_PET_MODE, 16 + 2 + 1) { }
+
+            WorldPacket const* Write() override;
+
+            ObjectGuid PetGUID;
+            ReactStates ReactState = REACT_PASSIVE;
+            CommandStates CommandState = COMMAND_STAY;
+            uint8 Flag = 0;
+        };
     }
 }
 

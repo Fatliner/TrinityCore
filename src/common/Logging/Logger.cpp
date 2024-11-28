@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -31,14 +31,9 @@ LogLevel Logger::getLogLevel() const
     return level;
 }
 
-void Logger::addAppender(uint8 id, Appender* appender)
+void Logger::addAppender(Appender* appender)
 {
-    appenders[id] = appender;
-}
-
-void Logger::delAppender(uint8 id)
-{
-    appenders.erase(id);
+    appenders.push_back(appender);
 }
 
 void Logger::setLogLevel(LogLevel _level)
@@ -54,7 +49,6 @@ void Logger::write(LogMessage* message) const
         return;
     }
 
-    for (auto it = appenders.begin(); it != appenders.end(); ++it)
-        if (it->second)
-            it->second->write(message);
+    for (Appender* appender : appenders)
+        appender->write(message);
 }

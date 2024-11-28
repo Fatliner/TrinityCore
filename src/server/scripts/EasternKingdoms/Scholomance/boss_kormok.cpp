@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -65,11 +65,11 @@ public:
             events.Reset();
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         {
-            events.ScheduleEvent(EVENT_SHADOWBOLT_VOLLEY, 10000);
-            events.ScheduleEvent(EVENT_BONE_SHIELD, 2000);
-            events.ScheduleEvent(EVENT_SUMMON_MINIONS, 15000);
+            events.ScheduleEvent(EVENT_SHADOWBOLT_VOLLEY, 10s);
+            events.ScheduleEvent(EVENT_BONE_SHIELD, 2s);
+            events.ScheduleEvent(EVENT_SUMMON_MINIONS, 15s);
         }
 
         void JustSummoned(Creature* summoned) override
@@ -77,7 +77,7 @@ public:
             summoned->AI()->AttackStart(me->GetVictim());
         }
 
-        void DamageTaken(Unit* /*attacker*/, uint32& damage) override
+        void DamageTaken(Unit* /*attacker*/, uint32& damage, DamageEffectType /*damageType*/, SpellInfo const* /*spellInfo = nullptr*/) override
         {
             if (me->HealthBelowPctDamaged(25, damage) && !Mages)
             {
@@ -102,15 +102,15 @@ public:
                 {
                     case EVENT_SHADOWBOLT_VOLLEY:
                         DoCastVictim(SPELL_SHADOWBOLT_VOLLEY);
-                        events.ScheduleEvent(EVENT_SHADOWBOLT_VOLLEY, 15000);
+                        events.ScheduleEvent(EVENT_SHADOWBOLT_VOLLEY, 15s);
                         break;
                     case EVENT_BONE_SHIELD:
                         DoCastVictim(SPELL_BONE_SHIELD);
-                        events.ScheduleEvent(EVENT_BONE_SHIELD, 45000);
+                        events.ScheduleEvent(EVENT_BONE_SHIELD, 45s);
                         break;
                     case EVENT_SUMMON_MINIONS:
                         DoCast(SPELL_SUMMON_BONE_MINIONS);
-                        events.ScheduleEvent(EVENT_SUMMON_MINIONS, 12000);
+                        events.ScheduleEvent(EVENT_SUMMON_MINIONS, 12s);
                         break;
                     default:
                         break;
@@ -119,8 +119,6 @@ public:
                 if (me->HasUnitState(UNIT_STATE_CASTING))
                     return;
             }
-
-            DoMeleeAttackIfReady();
         }
 
         private:
@@ -150,8 +148,6 @@ class spell_kormok_summon_bone_mages : SpellScriptLoader
 
         class spell_kormok_summon_bone_magesSpellScript : public SpellScript
         {
-            PrepareSpellScript(spell_kormok_summon_bone_magesSpellScript);
-
             bool Validate(SpellInfo const* /*spell*/) override
             {
                 return ValidateSpellInfo(SummonMageSpells);
@@ -184,8 +180,6 @@ class spell_kormok_summon_bone_minions : SpellScriptLoader
 
     class spell_kormok_summon_bone_minionsSpellScript : public SpellScript
     {
-        PrepareSpellScript(spell_kormok_summon_bone_minionsSpellScript);
-
         bool Validate(SpellInfo const* /*spell*/) override
         {
             return ValidateSpellInfo({ SPELL_SUMMON_BONE_MINIONS });
@@ -197,7 +191,7 @@ class spell_kormok_summon_bone_minions : SpellScriptLoader
 
             // Possible spells to handle this not found.
             for (uint32 i = 0; i < 4; ++i)
-                GetCaster()->SummonCreature(NPC_BONE_MINION, GetCaster()->GetPositionX() + float(irand(-7, 7)), GetCaster()->GetPositionY() + float(irand(-7, 7)), GetCaster()->GetPositionZ(), 0, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 120000);
+                GetCaster()->SummonCreature(NPC_BONE_MINION, GetCaster()->GetPositionX() + float(irand(-7, 7)), GetCaster()->GetPositionY() + float(irand(-7, 7)), GetCaster()->GetPositionZ(), 0, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 2min);
         }
 
         void Register() override

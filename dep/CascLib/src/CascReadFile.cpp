@@ -29,8 +29,6 @@ static DWORD OpenDataStream(TCascFile * hf, PCASC_FILE_SPAN pFileSpan, PCASC_CKE
 {
     TCascStorage * hs = hf->hs;
     TFileStream * pStream = NULL;
-    TCHAR szCachePath[MAX_PATH];
-    TCHAR szDataFile[MAX_PATH];
     TCHAR szPlainName[0x80];
     DWORD dwErrCode;
 
@@ -40,18 +38,26 @@ static DWORD OpenDataStream(TCascFile * hf, PCASC_FILE_SPAN pFileSpan, PCASC_CKE
     {
         DWORD dwArchiveIndex = pFileSpan->ArchiveIndex;
 
-        // If the file is not open yet, do it
+        // Lock the storage to make the operation thread-safe
+        CascLock(hs->StorageLock);
+
+        // If the data archive is not open yet, open it now.
         if(hs->DataFiles[dwArchiveIndex] == NULL)
         {
             // Prepare the name of the data file
             CascStrPrintf(szPlainName, _countof(szPlainName), _T("data.%03u"), dwArchiveIndex);
-            CombinePath(szDataFile, _countof(szDataFile), PATH_SEP_CHAR, hs->szIndexPath, szPlainName, NULL);
+
+            // Create the full path of the data file
+            CASC_PATH<TCHAR> DataFile(hs->szIndexPath, szPlainName, NULL);
 
             // Open the data stream with read+write sharing to prevent Battle.net agent
             // detecting a corruption and redownloading the entire package
-            pStream = FileStream_OpenFile(szDataFile, STREAM_FLAG_READ_ONLY | STREAM_FLAG_WRITE_SHARE | STREAM_PROVIDER_FLAT | STREAM_FLAG_FILL_MISSING | BASE_PROVIDER_FILE);
+            pStream = FileStream_OpenFile(DataFile, STREAM_FLAG_READ_ONLY | STREAM_FLAG_WRITE_SHARE | STREAM_PROVIDER_FLAT | STREAM_FLAG_FILL_MISSING | BASE_PROVIDER_FILE);
             hs->DataFiles[dwArchiveIndex] = pStream;
         }
+
+        // Unlock the storage
+        CascUnlock(hs->StorageLock);
 
         // Return error or success
         pFileSpan->pStream = hs->DataFiles[dwArchiveIndex];
@@ -61,35 +67,29 @@ static DWORD OpenDataStream(TCascFile * hf, PCASC_FILE_SPAN pFileSpan, PCASC_CKE
     {
         if(bDownloadFileIf)
         {
-            CASC_CDN_DOWNLOAD CdnsInfo = {0};
-            LPCTSTR szPathType = (pCKeyEntry->Flags & CASC_CE_FILE_PATCH) ? _T("patch") : _T("data");
+            CASC_ARCHIVE_INFO ArchiveInfo = {0};
+            CASC_PATH<TCHAR> LocalPath;
+            CPATH_TYPE PathType = (pCKeyEntry->Flags & CASC_CE_FILE_PATCH) ? PathTypePatch : PathTypeData;
 
-            // Prepare the download structure for "%CDNS_HOST%/%CDNS_PATH%/##/##/EKey" file
-            CdnsInfo.szCdnsPath = hs->szCdnPath;
-            CdnsInfo.szPathType = szPathType;
-            CdnsInfo.pbEKey = pCKeyEntry->EKey;
-            CdnsInfo.szLocalPath = szCachePath;
-            CdnsInfo.ccLocalPath = _countof(szCachePath);
-
-            // Download the file from CDN
-            dwErrCode = DownloadFileFromCDN(hs, CdnsInfo);
+            // Fetch the file
+            dwErrCode = FetchCascFile(hs, PathType, pCKeyEntry->EKey, NULL, LocalPath, &ArchiveInfo);
             if(dwErrCode == ERROR_SUCCESS)
             {
-                pStream = FileStream_OpenFile(szCachePath, BASE_PROVIDER_FILE | STREAM_PROVIDER_FLAT);
+                pStream = FileStream_OpenFile(LocalPath, BASE_PROVIDER_FILE | STREAM_PROVIDER_FLAT);
                 if(pStream != NULL)
                 {
                     // Initialize information about the position and size of the file in archive
                     // On loose files, their position is zero and encoded size is length of the file
-                    if(CdnsInfo.pbArchiveKey != NULL)
+                    if(CascIsValidMD5(ArchiveInfo.ArchiveKey))
                     {
                         // Archive position
-                        pFileSpan->ArchiveIndex = CdnsInfo.ArchiveIndex;
-                        pFileSpan->ArchiveOffs = (DWORD)CdnsInfo.ArchiveOffs;
+                        pFileSpan->ArchiveIndex = ArchiveInfo.ArchiveIndex;
+                        pFileSpan->ArchiveOffs = ArchiveInfo.ArchiveOffs;
 
                         // Encoded size
                         if(pCKeyEntry->EncodedSize == CASC_INVALID_SIZE)
-                            pCKeyEntry->EncodedSize = CdnsInfo.EncodedSize;
-                        assert(pCKeyEntry->EncodedSize == CdnsInfo.EncodedSize);
+                            pCKeyEntry->EncodedSize = ArchiveInfo.EncodedSize;
+                        assert(pCKeyEntry->EncodedSize == ArchiveInfo.EncodedSize);
                     }
                     else
                     {
@@ -109,13 +109,14 @@ static DWORD OpenDataStream(TCascFile * hf, PCASC_FILE_SPAN pFileSpan, PCASC_CKE
                     return ERROR_SUCCESS;
                 }
             }
+            return dwErrCode;
         }
 
         return ERROR_FILE_OFFLINE;
     }
 }
 
-#ifdef _DEBUG
+#ifdef CASCLIB_DEBUG
 static unsigned int table_16C57A8[0x10] =
 {
     0x049396B8, 0x72A82A9B, 0xEE626CCA, 0x9917754F,
@@ -150,19 +151,18 @@ static void VerifyHeaderSpan(PBLTE_ENCODED_HEADER pBlteHeader, ULONGLONG HeaderO
     ConvertIntegerToBytes_4_LE(dwInt32, EncodedOffset);
 
     // Calculate checksum of the so-far filled structure
-    for (i = 0; i < FIELD_OFFSET(BLTE_ENCODED_HEADER, Checksum); i++)
+    for(i = 0; i < FIELD_OFFSET(BLTE_ENCODED_HEADER, Checksum); i++)
         HashedHeader[i & 3] ^= pbBlteHeader[i];
 
     // XOR the two values together to get the final checksum.
-    for (j = 0; j < 4; j++, i++)
+    for(j = 0; j < 4; j++, i++)
         Checksum[j] = HashedHeader[i & 3] ^ EncodedOffset[i & 3];
 //  assert(memcmp(pBlteHeader->Checksum, Checksum, sizeof(Checksum)) == 0);
 }
 #endif
 
-static DWORD ParseBlteHeader(PCASC_FILE_SPAN pFileSpan, PCASC_CKEY_ENTRY pCKeyEntry, ULONGLONG HeaderOffset, LPBYTE pbEncodedBuffer, size_t cbEncodedBuffer, size_t * pcbHeaderSize)
+static DWORD ParseBlteHeader(PCASC_FILE_SPAN pFileSpan, ULONGLONG HeaderOffset, LPBYTE pbEncodedBuffer, size_t cbEncodedBuffer, size_t * pcbHeaderSize)
 {
-    PBLTE_ENCODED_HEADER pEncodedHeader = (PBLTE_ENCODED_HEADER)pbEncodedBuffer;
     PBLTE_HEADER pBlteHeader = (PBLTE_HEADER)pbEncodedBuffer;
     DWORD ExpectedHeaderSize;
     DWORD ExHeaderSize = 0;
@@ -172,41 +172,44 @@ static DWORD ParseBlteHeader(PCASC_FILE_SPAN pFileSpan, PCASC_CKEY_ENTRY pCKeyEn
     CASCLIB_UNUSED(HeaderOffset);
 
     // On files within storage segments ("data.###"), there is BLTE_ENCODED_HEADER
-    // On local files, there is just PBLTE_HEADER
+    // On local files, there is just BLTE_HEADER
     if(ConvertBytesToInteger_4_LE(pBlteHeader->Signature) != BLTE_HEADER_SIGNATURE)
     {
-        // There must be at least some bytes
-        if (cbEncodedBuffer < FIELD_OFFSET(BLTE_ENCODED_HEADER, MustBe0F))
-            return ERROR_BAD_FORMAT;
-        if (pEncodedHeader->EncodedSize != pCKeyEntry->EncodedSize)
-            return ERROR_BAD_FORMAT;
+        PBLTE_ENCODED_HEADER pEncodedHeader;
 
-#ifdef _DEBUG
+        // There must be at least some bytes
+        if(cbEncodedBuffer < FIELD_OFFSET(BLTE_ENCODED_HEADER, MustBe0F))
+            return ERROR_BAD_FORMAT;
+        pEncodedHeader = (PBLTE_ENCODED_HEADER)pbEncodedBuffer;
+
+        // Since Jul-2023, users report that the the encoded part of the BLTE header
+        // may contain zeros or even complete garbage. Do NOT test anything else than the signature
+        // Tested on WoW Classic 49821, file "Sound\\Music\\GlueScreenMusic\\wow_main_theme.mp3"
+        // Data File: data.004, file offset 00000000-18BDD2AA (encoded header zeroed)
+        if(ConvertBytesToInteger_4_LE(pEncodedHeader->Signature) != BLTE_HEADER_SIGNATURE)
+            return ERROR_BAD_FORMAT;
+        pBlteHeader = (PBLTE_HEADER)(pEncodedHeader->Signature);
+        ExHeaderSize = FIELD_OFFSET(BLTE_ENCODED_HEADER, Signature);
+
+#ifdef CASCLIB_DEBUG
         // Not really needed, it's here just for explanation of what the values mean
         //assert(memcmp(pCKeyEntry->EKey, pEncodedHeader->EKey.Value, MD5_HASH_SIZE) == 0);
         VerifyHeaderSpan(pEncodedHeader, HeaderOffset);
 #endif
-        // Capture the EKey
-        ExHeaderSize = FIELD_OFFSET(BLTE_ENCODED_HEADER, Signature);
-        pBlteHeader = (PBLTE_HEADER)(pbEncodedBuffer + ExHeaderSize);
     }
-
-    // Verify the signature
-    if(ConvertBytesToInteger_4_LE(pBlteHeader->Signature) != BLTE_HEADER_SIGNATURE)
-        return ERROR_BAD_FORMAT;
 
     // Capture the header size. If this is non-zero, then array
     // of chunk headers follow. Otherwise, the file is just one chunk
     HeaderSize = ConvertBytesToInteger_4(pBlteHeader->HeaderSize);
-    if (HeaderSize != 0)
+    if(HeaderSize != 0)
     {
-        if (pBlteHeader->MustBe0F != 0x0F)
+        if(pBlteHeader->MustBe0F != 0x0F)
             return ERROR_BAD_FORMAT;
-        
+
         // Verify the header size
         FrameCount = ConvertBytesToInteger_3(pBlteHeader->FrameCount);
         ExpectedHeaderSize = 0x0C + FrameCount * sizeof(BLTE_FRAME);
-        if (ExpectedHeaderSize != HeaderSize)
+        if(ExpectedHeaderSize != HeaderSize)
             return ERROR_BAD_FORMAT;
 
         // Give the values
@@ -226,13 +229,13 @@ static LPBYTE ReadMissingHeaderData(PCASC_FILE_SPAN pFileSpan, ULONGLONG DataFil
 {
     LPBYTE pbNewBuffer;
 
-    // Reallocate the buffer
-    pbNewBuffer = CASC_REALLOC(BYTE, pbEncodedBuffer, cbTotalHeaderSize);
-    if (pbNewBuffer != NULL)
+    // Reallocate the buffer. Note that if this fails, the original buffer is still valid
+    pbNewBuffer = CASC_REALLOC(pbEncodedBuffer, cbTotalHeaderSize);
+    if(pbNewBuffer != NULL)
     {
         // Load the missing data
         DataFileOffset += cbEncodedBuffer;
-        if (FileStream_Read(pFileSpan->pStream, &DataFileOffset, pbNewBuffer + cbEncodedBuffer, (DWORD)(cbTotalHeaderSize - cbEncodedBuffer)))
+        if(FileStream_Read(pFileSpan->pStream, &DataFileOffset, pbNewBuffer + cbEncodedBuffer, (DWORD)(cbTotalHeaderSize - cbEncodedBuffer)))
         {
             return pbNewBuffer;
         }
@@ -257,7 +260,7 @@ static LPBYTE CaptureBlteFileFrame(CASC_FILE_FRAME & Frame, LPBYTE pbFramePtr, L
     return pbFramePtr + sizeof(BLTE_FRAME);
 }
 
-static DWORD LoadSpanFrames(PCASC_FILE_SPAN pFileSpan, PCASC_CKEY_ENTRY pCKeyEntry, DWORD DataFileOffset, LPBYTE pbFramePtr, LPBYTE pbFrameEnd, size_t cbHeaderSize)
+static DWORD LoadSpanFrames(PCASC_FILE_SPAN pFileSpan, PCASC_CKEY_ENTRY pCKeyEntry, ULONGLONG DataFileOffset, LPBYTE pbFramePtr, LPBYTE pbFrameEnd, size_t cbHeaderSize)
 {
     PCASC_FILE_FRAME pFrames = NULL;
     DWORD ContentSize = 0;
@@ -267,17 +270,17 @@ static DWORD LoadSpanFrames(PCASC_FILE_SPAN pFileSpan, PCASC_CKEY_ENTRY pCKeyEnt
     assert(pFileSpan->pStream != NULL);
     assert(pFileSpan->pFrames == NULL);
 
-    if (pFileSpan->FrameCount != 0)
+    if(pFileSpan->FrameCount != 0)
     {
         // Move the raw archive offset
-        DataFileOffset += (pFileSpan->FrameCount * sizeof(BLTE_FRAME));
+        DataFileOffset += ((ULONGLONG)pFileSpan->FrameCount * sizeof(BLTE_FRAME));
 
         // Allocate array of file frames
         pFrames = CASC_ALLOC<CASC_FILE_FRAME>(pFileSpan->FrameCount);
-        if (pFrames != NULL)
+        if(pFrames != NULL)
         {
             // Copy the frames to the file structure
-            for (DWORD i = 0; i < pFileSpan->FrameCount; i++)
+            for(DWORD i = 0; i < pFileSpan->FrameCount; i++)
             {
                 CASC_FILE_FRAME & Frame = pFrames[i];
 
@@ -315,7 +318,7 @@ static DWORD LoadSpanFrames(PCASC_FILE_SPAN pFileSpan, PCASC_CKEY_ENTRY pCKeyEnt
     {
         // Allocate single "dummy" frame
         pFrames = CASC_ALLOC<CASC_FILE_FRAME>(1);
-        if (pFrames != NULL)
+        if(pFrames != NULL)
         {
             // Fill the single frame
             memset(&pFrames->FrameHash, 0, sizeof(CONTENT_KEY));
@@ -351,7 +354,7 @@ static DWORD LoadSpanFramesForPlainFile(PCASC_FILE_SPAN pFileSpan, PCASC_CKEY_EN
 
     // Allocate single "dummy" frame
     pFrames = CASC_ALLOC<CASC_FILE_FRAME>(1);
-    if (pFrames != NULL)
+    if(pFrames != NULL)
     {
         // Setup the size
         pFileSpan->EndOffset = pFileSpan->StartOffset + pCKeyEntry->ContentSize;
@@ -386,7 +389,7 @@ static DWORD LoadEncodedHeaderAndSpanFrames(PCASC_FILE_SPAN pFileSpan, PCASC_CKE
 
     // Allocate the initial buffer for the encoded headers
     pbEncodedBuffer = CASC_ALLOC<BYTE>(MAX_ENCODED_HEADER);
-    if (pbEncodedBuffer != NULL)
+    if(pbEncodedBuffer != NULL)
     {
         ULONGLONG ReadOffset = pFileSpan->ArchiveOffs;
         size_t cbTotalHeaderSize;
@@ -401,27 +404,27 @@ static DWORD LoadEncodedHeaderAndSpanFrames(PCASC_FILE_SPAN pFileSpan, PCASC_CKE
         // Load the entire (eventual) header area. This is faster than doing
         // two read operations in a row. Read as much as possible. If the file is cut,
         // the FileStream will pad it with zeros
-        if (FileStream_Read(pFileSpan->pStream, &ReadOffset, pbEncodedBuffer, (DWORD)cbEncodedBuffer))
+        if(FileStream_Read(pFileSpan->pStream, &ReadOffset, pbEncodedBuffer, (DWORD)cbEncodedBuffer))
         {
             // Parse the BLTE header
-            dwErrCode = ParseBlteHeader(pFileSpan, pCKeyEntry, ReadOffset, pbEncodedBuffer, cbEncodedBuffer, &cbHeaderSize);
-            if (dwErrCode == ERROR_SUCCESS)
+            dwErrCode = ParseBlteHeader(pFileSpan, ReadOffset, pbEncodedBuffer, cbEncodedBuffer, &cbHeaderSize);
+            if(dwErrCode == ERROR_SUCCESS)
             {
                 // If the headers are larger than the initial read size, we read the missing data
                 pFileSpan->HeaderSize = (DWORD)(cbTotalHeaderSize = cbHeaderSize + (pFileSpan->FrameCount * sizeof(BLTE_FRAME)));
-                if (cbTotalHeaderSize > cbEncodedBuffer)
+                if(cbTotalHeaderSize > cbEncodedBuffer)
                 {
                     pbEncodedBuffer = ReadMissingHeaderData(pFileSpan, ReadOffset, pbEncodedBuffer, cbEncodedBuffer, cbTotalHeaderSize);
-                    if (pbEncodedBuffer == NULL)
-                        dwErrCode = GetLastError();
+                    if(pbEncodedBuffer == NULL)
+                        dwErrCode = GetCascError();
                     cbEncodedBuffer = cbTotalHeaderSize;
                 }
 
                 // Load the array of frame headers
-                if (dwErrCode == ERROR_SUCCESS)
+                if(dwErrCode == ERROR_SUCCESS)
                 {
-                    assert((DWORD)(ReadOffset + cbHeaderSize) > (DWORD)ReadOffset);
-                    dwErrCode = LoadSpanFrames(pFileSpan, pCKeyEntry, (DWORD)(ReadOffset + cbHeaderSize), pbEncodedBuffer + cbHeaderSize, pbEncodedBuffer + cbEncodedBuffer, cbHeaderSize);
+                    assert((ReadOffset + cbHeaderSize) > ReadOffset);
+                    dwErrCode = LoadSpanFrames(pFileSpan, pCKeyEntry, ReadOffset + cbHeaderSize, pbEncodedBuffer + cbHeaderSize, pbEncodedBuffer + cbEncodedBuffer, cbHeaderSize);
                 }
             }
             else
@@ -586,7 +589,7 @@ static DWORD DecodeFileFrame(
         switch(pbEncoded[0])
         {
             case 'E':   // Encrypted files
-                
+
                 // The work buffer should not have been allocated by any step
                 assert(pbWorkBuffer == NULL && cbWorkBuffer == 0);
 
@@ -612,7 +615,7 @@ static DWORD DecodeFileFrame(
                 break;
 
             case 'Z':   // ZLIB compressed files
-                
+
                 // If we decompressed less than expected, we simply fill the rest with zeros
                 // Example: INSTALL file from the TACT CASC storage
                 cbDecodedExpected = cbDecoded;
@@ -667,7 +670,7 @@ static bool GetFileFullInfo(TCascFile * hf, void * pvFileInfo, size_t cbFileInfo
     dwErrCode = EnsureFileSpanFramesLoaded(hf);
     if(dwErrCode != ERROR_SUCCESS)
     {
-        SetLastError(dwErrCode);
+        SetCascError(dwErrCode);
         return false;
     }
 
@@ -711,7 +714,7 @@ static bool GetFileSpanInfo(TCascFile * hf, void * pvFileInfo, size_t cbFileInfo
     dwErrCode = EnsureFileSpanFramesLoaded(hf);
     if(dwErrCode != ERROR_SUCCESS)
     {
-        SetLastError(dwErrCode);
+        SetCascError(dwErrCode);
         return false;
     }
 
@@ -783,11 +786,11 @@ static DWORD ReadFile_WholeFile(TCascFile * hf, LPBYTE pbBuffer)
         ULONGLONG ByteOffset = pFileSpan->ArchiveOffs + pFileSpan->HeaderSize;
         DWORD EncodedSize = pCKeyEntry->EncodedSize - pFileSpan->HeaderSize;
 
-        // Allocate the buffer for the entire encoded span 
+        // Allocate the buffer for the entire encoded span
         pbEncodedPtr = pbEncoded = CASC_ALLOC<BYTE>(EncodedSize);
         if(pbEncoded == NULL)
         {
-            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+            SetCascError(ERROR_NOT_ENOUGH_MEMORY);
             return 0;
         }
 
@@ -821,7 +824,6 @@ static DWORD ReadFile_FrameCached(TCascFile * hf, LPBYTE pbBuffer, ULONGLONG Sta
     PCASC_CKEY_ENTRY pCKeyEntry = hf->pCKeyEntry;
     PCASC_FILE_SPAN pFileSpan = hf->pFileSpan;
     PCASC_FILE_FRAME pFileFrame = NULL;
-    ULONGLONG ByteOffset;
     LPBYTE pbSaveBuffer = pbBuffer;
     LPBYTE pbEncoded = NULL;
     LPBYTE pbDecoded = NULL;
@@ -845,7 +847,7 @@ static DWORD ReadFile_FrameCached(TCascFile * hf, LPBYTE pbBuffer, ULONGLONG Sta
                     // Check bytes read overflow
                     if((dwBytesRead + pFileFrame->ContentSize) < dwBytesRead)
                     {
-                        SetLastError(ERROR_BUFFER_OVERFLOW);
+                        SetCascError(ERROR_BUFFER_OVERFLOW);
                         return 0;
                     }
 
@@ -856,7 +858,7 @@ static DWORD ReadFile_FrameCached(TCascFile * hf, LPBYTE pbBuffer, ULONGLONG Sta
                     {
                         if((pbDecoded = CASC_ALLOC<BYTE>(pFileFrame->ContentSize)) == NULL)
                         {
-                            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+                            SetCascError(ERROR_NOT_ENOUGH_MEMORY);
                             return 0;
                         }
                         bNeedFreeDecoded = true;
@@ -871,13 +873,12 @@ static DWORD ReadFile_FrameCached(TCascFile * hf, LPBYTE pbBuffer, ULONGLONG Sta
                     if((pbEncoded = CASC_ALLOC<BYTE>(pFileFrame->EncodedSize)) == NULL)
                     {
                         CASC_FREE(pbDecoded);
-                        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+                        SetCascError(ERROR_NOT_ENOUGH_MEMORY);
                         return 0;
                     }
 
                     // Load the frame to the encoded buffer
-                    ByteOffset = pFileFrame->DataFileOffset;
-                    if(FileStream_Read(pFileSpan->pStream, &ByteOffset, pbEncoded, pFileFrame->EncodedSize))
+                    if(FileStream_Read(pFileSpan->pStream, &pFileFrame->DataFileOffset, pbEncoded, pFileFrame->EncodedSize))
                     {
                         ULONGLONG EndOfCopy = CASCLIB_MIN(pFileFrame->EndOffset, EndOffset);
                         DWORD dwBytesToCopy = (DWORD)(EndOfCopy - StartOffset);
@@ -929,7 +930,7 @@ static DWORD ReadFile_FrameCached(TCascFile * hf, LPBYTE pbBuffer, ULONGLONG Sta
     pbDecoded = NULL;
 
     // Return the number of bytes read. Always set LastError.
-    SetLastError(dwErrCode);
+    SetCascError(dwErrCode);
     return (DWORD)(pbBuffer - pbSaveBuffer);
 }
 
@@ -964,7 +965,7 @@ bool WINAPI CascGetFileInfo(HANDLE hFile, CASC_FILE_INFO_CLASS InfoClass, void *
     // Validate the file handle
     if((hf = TCascFile::IsValid(hFile)) == NULL)
     {
-        SetLastError(ERROR_INVALID_HANDLE);
+        SetCascError(ERROR_INVALID_HANDLE);
         return false;
     }
 
@@ -976,7 +977,7 @@ bool WINAPI CascGetFileInfo(HANDLE hFile, CASC_FILE_INFO_CLASS InfoClass, void *
             // Do we have content key at all?
             if(hf->pCKeyEntry == NULL || (hf->pCKeyEntry->Flags & CASC_CE_HAS_CKEY) == 0)
             {
-                SetLastError(ERROR_NOT_SUPPORTED);
+                SetCascError(ERROR_NOT_SUPPORTED);
                 return false;
             }
 
@@ -990,7 +991,7 @@ bool WINAPI CascGetFileInfo(HANDLE hFile, CASC_FILE_INFO_CLASS InfoClass, void *
             // Do we have content key at all?
             if(hf->pCKeyEntry == NULL || (hf->pCKeyEntry->Flags & CASC_CE_HAS_EKEY) == 0)
             {
-                SetLastError(ERROR_NOT_SUPPORTED);
+                SetCascError(ERROR_NOT_SUPPORTED);
                 return false;
             }
 
@@ -1006,7 +1007,7 @@ bool WINAPI CascGetFileInfo(HANDLE hFile, CASC_FILE_INFO_CLASS InfoClass, void *
             return GetFileSpanInfo(hf, pvFileInfo, cbFileInfo, pcbLengthNeeded);
 
         default:
-            SetLastError(ERROR_INVALID_PARAMETER);
+            SetCascError(ERROR_INVALID_PARAMETER);
             return false;
     }
 
@@ -1021,6 +1022,29 @@ bool WINAPI CascGetFileInfo(HANDLE hFile, CASC_FILE_INFO_CLASS InfoClass, void *
     return (pbOutputValue != NULL);
 }
 
+bool WINAPI CascSetFileFlags(HANDLE hFile, DWORD dwOpenFlags)
+{
+    TCascFile * hf;
+
+    // Validate the file handle
+    if((hf = TCascFile::IsValid(hFile)) == NULL)
+    {
+        SetCascError(ERROR_INVALID_HANDLE);
+        return false;
+    }
+
+    // Currently, only CASC_OVERCOME_ENCRYPTED can be changed
+    if(dwOpenFlags & ~CASC_OVERCOME_ENCRYPTED)
+    {
+        SetCascError(ERROR_INVALID_PARAMETER);
+        return false;
+    }
+
+    // Set "overcome encrypted" flag. Will apply on next CascReadFile
+    hf->bOvercomeEncrypted = (dwOpenFlags & CASC_OVERCOME_ENCRYPTED) ? true : false;
+    return true;
+}
+
 //
 // THE FILE SIZE PROBLEM
 //
@@ -1032,7 +1056,7 @@ bool WINAPI CascGetFileInfo(HANDLE hFile, CASC_FILE_INFO_CLASS InfoClass, void *
 // HotS(29049)  ENCODING  0x0024BA45 - 0x0024b98a  0x0024BA45  n/a         0x0024BA45  n/a
 // HotS(29049)  ROOT      0x00193340 - 0x00193340  0x0010db65  0x00193340  0x0010db65  n/a
 // HotS(29049)  (other)   0x00001080 - 0x00001080  0x000008eb  0x00001080  0x000008eb  0x00001080
-//                                                             
+//
 // WoW(18888)   ENCODING  0x030d487b - 0x030dee79  0x030d487b  n/a         0x030d487b  n/a
 // WoW(18888)   ROOT      0x016a9800 - n/a         0x0131313d  0x016a9800  0x0131313d  n/a
 // WoW(18888)   (other)   0x000007d0 - 0x000007d0  0x00000397  0x000007d0  0x00000397  n/a
@@ -1043,18 +1067,25 @@ bool WINAPI CascGetFileSize64(HANDLE hFile, PULONGLONG PtrFileSize)
     TCascFile * hf;
     DWORD dwErrCode;
 
-    // Validate the file handle
-    if((hf = TCascFile::IsValid(hFile)) == NULL)
-    {
-        SetLastError(ERROR_INVALID_HANDLE);
-        return false;
-    }
-
     // Validate the file pointer
     if(PtrFileSize == NULL)
     {
-        SetLastError(ERROR_INVALID_PARAMETER);
+        SetCascError(ERROR_INVALID_PARAMETER);
         return false;
+    }
+
+    // Validate the file handle
+    if((hf = TCascFile::IsValid(hFile)) == NULL)
+    {
+        SetCascError(ERROR_INVALID_HANDLE);
+        return false;
+    }
+
+    // If the content key is zeros, we treat the file as a file with size of 0
+    if(hf->ContentSize == 0)
+    {
+        PtrFileSize[0] = 0;
+        return true;
     }
 
     // ENCODING on older storages: Content size is not present in the BUILD file
@@ -1062,7 +1093,7 @@ bool WINAPI CascGetFileSize64(HANDLE hFile, PULONGLONG PtrFileSize)
     dwErrCode = EnsureFileSpanFramesLoaded(hf);
     if(dwErrCode != ERROR_SUCCESS)
     {
-        SetLastError(dwErrCode);
+        SetCascError(dwErrCode);
         return false;
     }
 
@@ -1094,7 +1125,7 @@ bool WINAPI CascSetFilePointer64(HANDLE hFile, LONGLONG DistanceToMove, PULONGLO
     hf = TCascFile::IsValid(hFile);
     if(hf == NULL)
     {
-        SetLastError(ERROR_INVALID_HANDLE);
+        SetCascError(ERROR_INVALID_HANDLE);
         return false;
     }
 
@@ -1114,7 +1145,7 @@ bool WINAPI CascSetFilePointer64(HANDLE hFile, LONGLONG DistanceToMove, PULONGLO
             break;
 
         default:
-            SetLastError(ERROR_INVALID_PARAMETER);
+            SetCascError(ERROR_INVALID_PARAMETER);
             return false;
     }
 
@@ -1124,7 +1155,7 @@ bool WINAPI CascSetFilePointer64(HANDLE hFile, LONGLONG DistanceToMove, PULONGLO
         // Do not allow the file pointer to overflow 64-bit range
         if((FilePosition + DistanceToMove) < FilePosition)
         {
-            SetLastError(ERROR_INVALID_PARAMETER);
+            SetCascError(ERROR_INVALID_PARAMETER);
             return false;
         }
 
@@ -1138,12 +1169,12 @@ bool WINAPI CascSetFilePointer64(HANDLE hFile, LONGLONG DistanceToMove, PULONGLO
         // Do not allow the file pointer to underflow 64-bit range
         if((FilePosition + DistanceToMove) > FilePosition)
         {
-            SetLastError(ERROR_INVALID_PARAMETER);
+            SetCascError(ERROR_INVALID_PARAMETER);
             return false;
         }
 
         // Do not allow the file pointer to move to negative values
-        if((FilePosition = FilePosition + DistanceToMove) < 0)
+        if((LONGLONG)(FilePosition = FilePosition + DistanceToMove) < 0)
             FilePosition = 0;
         hf->FilePointer = FilePosition;
     }
@@ -1158,7 +1189,7 @@ DWORD WINAPI CascSetFilePointer(HANDLE hFile, LONG lFilePos, LONG * PtrFilePosHi
 {
     ULONGLONG NewPos = 0;
     LONGLONG DistanceToMove;
-    
+
     // Assemble the 64-bit distance to move
     DistanceToMove = (PtrFilePosHigh != NULL) ? MAKE_OFFSET64(PtrFilePosHigh[0], lFilePos) : (LONGLONG)(LONG)lFilePos;
 
@@ -1186,15 +1217,22 @@ bool WINAPI CascReadFile(HANDLE hFile, void * pvBuffer, DWORD dwBytesToRead, PDW
     // The buffer must be valid
     if(pvBuffer == NULL)
     {
-        SetLastError(ERROR_INVALID_PARAMETER);
+        SetCascError(ERROR_INVALID_PARAMETER);
         return false;
     }
 
     // Validate the file handle
     if((hf = TCascFile::IsValid(hFile)) == NULL)
     {
-        SetLastError(ERROR_INVALID_HANDLE);
+        SetCascError(ERROR_INVALID_HANDLE);
         return false;
+    }
+
+    // Check files with zero size
+    if(hf->ContentSize == 0)
+    {
+        PtrBytesRead[0] = 0;
+        return true;
     }
 
     // If we don't have file frames loaded, we need to do it now.
@@ -1202,7 +1240,7 @@ bool WINAPI CascReadFile(HANDLE hFile, void * pvBuffer, DWORD dwBytesToRead, PDW
     dwErrCode = EnsureFileSpanFramesLoaded(hf);
     if(dwErrCode != ERROR_SUCCESS)
     {
-        SetLastError(dwErrCode);
+        SetCascError(dwErrCode);
         return false;
     }
 
@@ -1243,7 +1281,7 @@ bool WINAPI CascReadFile(HANDLE hFile, void * pvBuffer, DWORD dwBytesToRead, PDW
     {
         // No caching at all. The entire file will be read directly to the user buffer
         // Used for loading internal files, where we need to read the whole file
-        case CascCacheNothing:  
+        case CascCacheNothing:
             dwBytesRead2 = ReadFile_NonCached(hf, pbBuffer, StartOffset, EndOffset);
             break;
 
@@ -1269,6 +1307,8 @@ bool WINAPI CascReadFile(HANDLE hFile, void * pvBuffer, DWORD dwBytesToRead, PDW
         if(PtrBytesRead != NULL)
             PtrBytesRead[0] = 0;
         hf->FilePointer = SaveFilePointer;
-        return false;
+
+        // If 0 bytes were requested, it's actually a success
+        return (dwBytesToRead == 0);
     }
 }

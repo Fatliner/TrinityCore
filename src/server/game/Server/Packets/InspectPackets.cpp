@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,15 +16,18 @@
  */
 
 #include "InspectPackets.h"
+#include "AzeriteItem.h"
 #include "Item.h"
 #include "Player.h"
 
-void WorldPackets::Inspect::Inspect::Read()
+namespace WorldPackets::Inspect
+{
+void Inspect::Read()
 {
     _worldPacket >> Target;
 }
 
-ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Inspect::InspectEnchantData const& enchantData)
+ByteBuffer& operator<<(ByteBuffer& data, InspectEnchantData const& enchantData)
 {
     data << uint32(enchantData.Id);
     data << uint8(enchantData.Index);
@@ -32,7 +35,7 @@ ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Inspect::InspectEnchantDa
     return data;
 }
 
-ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Inspect::AzeriteEssenceData const& azeriteEssenceData)
+ByteBuffer& operator<<(ByteBuffer& data, AzeriteEssenceData const& azeriteEssenceData)
 {
     data << uint32(azeriteEssenceData.Index);
     data << uint32(azeriteEssenceData.AzeriteEssenceID);
@@ -43,7 +46,7 @@ ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Inspect::AzeriteEssenceDa
     return data;
 }
 
-ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Inspect::InspectItemData const& itemData)
+ByteBuffer& operator<<(ByteBuffer& data, InspectItemData const& itemData)
 {
     data << itemData.CreatorGUID;
     data << uint8(itemData.Index);
@@ -59,62 +62,57 @@ ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Inspect::InspectItemData 
     data.WriteBits(itemData.Gems.size(), 2);
     data.FlushBits();
 
-    for (WorldPackets::Inspect::AzeriteEssenceData const& azeriteEssenceData : itemData.AzeriteEssences)
+    for (AzeriteEssenceData const& azeriteEssenceData : itemData.AzeriteEssences)
         data << azeriteEssenceData;
 
-    for (WorldPackets::Inspect::InspectEnchantData const& enchantData : itemData.Enchants)
+    for (InspectEnchantData const& enchantData : itemData.Enchants)
         data << enchantData;
 
-    for (WorldPackets::Item::ItemGemData const& gem : itemData.Gems)
+    for (Item::ItemGemData const& gem : itemData.Gems)
         data << gem;
 
     return data;
 }
 
-void WorldPackets::Inspect::PlayerModelDisplayInfo::Initialize(Player const* player)
+void PlayerModelDisplayInfo::Initialize(Player const* player)
 {
     GUID = player->GetGUID();
-    SpecializationID = player->GetPrimarySpecialization();
+    SpecializationID = AsUnderlyingType(player->GetPrimarySpecialization());
     Name = player->GetName();
-    GenderID = player->m_playerData->NativeSex;
-    Skin = player->m_playerData->SkinID;
-    HairColor = player->m_playerData->HairColorID;
-    HairStyle = player->m_playerData->HairStyleID;
-    FacialHairStyle = player->m_playerData->FacialHairStyleID;
-    Face = player->m_playerData->FaceID;
-    Race = player->getRace();
-    ClassID = player->getClass();
-    std::copy(player->m_playerData->CustomDisplayOption.begin(), player->m_playerData->CustomDisplayOption.end(), CustomDisplay.begin());
+    GenderID = player->GetNativeGender();
+    Race = player->GetRace();
+    ClassID = player->GetClass();
+
+    for (UF::ChrCustomizationChoice const& customization : player->m_playerData->Customizations)
+        Customizations.push_back(customization);
 
     for (uint8 i = 0; i < EQUIPMENT_SLOT_END; ++i)
         if (::Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
             Items.emplace_back(item, i);
 }
 
-ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Inspect::PlayerModelDisplayInfo const& displayInfo)
+ByteBuffer& operator<<(ByteBuffer& data, PlayerModelDisplayInfo const& displayInfo)
 {
     data << displayInfo.GUID;
     data << int32(displayInfo.SpecializationID);
     data << uint32(displayInfo.Items.size());
     data.WriteBits(displayInfo.Name.length(), 6);
     data << uint8(displayInfo.GenderID);
-    data << uint8(displayInfo.Skin);
-    data << uint8(displayInfo.HairColor);
-    data << uint8(displayInfo.HairStyle);
-    data << uint8(displayInfo.FacialHairStyle);
-    data << uint8(displayInfo.Face);
     data << uint8(displayInfo.Race);
     data << uint8(displayInfo.ClassID);
-    data.append(displayInfo.CustomDisplay.data(), displayInfo.CustomDisplay.size());
+    data << uint32(displayInfo.Customizations.size());
     data.WriteString(displayInfo.Name);
 
-    for (WorldPackets::Inspect::InspectItemData const& item : displayInfo.Items)
+    for (Character::ChrCustomizationChoice const& customization : displayInfo.Customizations)
+        data << customization;
+
+    for (InspectItemData const& item : displayInfo.Items)
         data << item;
 
     return data;
 }
 
-ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Inspect::InspectGuildData const& guildData)
+ByteBuffer& operator<<(ByteBuffer& data, InspectGuildData const& guildData)
 {
     data << guildData.GuildGUID;
     data << int32(guildData.NumGuildMembers);
@@ -123,9 +121,10 @@ ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Inspect::InspectGuildData
     return data;
 }
 
-ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Inspect::PVPBracketData const& bracket)
+ByteBuffer& operator<<(ByteBuffer& data, PVPBracketData const& bracket)
 {
     data << uint8(bracket.Bracket);
+    data << int32(bracket.RatingID);
     data << int32(bracket.Rating);
     data << int32(bracket.Rank);
     data << int32(bracket.WeeklyPlayed);
@@ -133,15 +132,31 @@ ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Inspect::PVPBracketData c
     data << int32(bracket.SeasonPlayed);
     data << int32(bracket.SeasonWon);
     data << int32(bracket.WeeklyBestRating);
-    data << int32(bracket.Unk710);
-    data << int32(bracket.Unk801_1);
-    data.WriteBit(bracket.Unk801_2);
+    data << int32(bracket.LastWeeksBestRating);
+    data << int32(bracket.Tier);
+    data << int32(bracket.WeeklyBestTier);
+    data << int32(bracket.SeasonBestRating);
+    data << int32(bracket.SeasonBestTierEnum);
+    data << int32(bracket.RoundsSeasonPlayed);
+    data << int32(bracket.RoundsSeasonWon);
+    data << int32(bracket.RoundsWeeklyPlayed);
+    data << int32(bracket.RoundsWeeklyWon);
+    data.WriteBit(bracket.Disqualified);
     data.FlushBits();
 
     return data;
 }
 
-WorldPackets::Inspect::InspectItemData::InspectItemData(::Item const* item, uint8 index)
+ByteBuffer& operator<<(ByteBuffer& data, TraitInspectInfo const& traits)
+{
+    data << int32(traits.Level);
+    data << int32(traits.ChrSpecializationID);
+    data << traits.Config;
+
+    return data;
+}
+
+InspectItemData::InspectItemData(::Item const* item, uint8 index)
 {
     CreatorGUID = item->GetCreator();
 
@@ -160,15 +175,37 @@ WorldPackets::Inspect::InspectItemData::InspectItemData(::Item const* item, uint
         {
             Gems.emplace_back();
 
-            WorldPackets::Item::ItemGemData& gem = Gems.back();
+            Item::ItemGemData& gem = Gems.back();
             gem.Slot = i;
             gem.Item.Initialize(&gemData);
         }
         ++i;
     }
+
+    if (AzeriteItem const* azeriteItem = item->ToAzeriteItem())
+    {
+        if (UF::SelectedAzeriteEssences const* essences = azeriteItem->GetSelectedAzeriteEssences())
+        {
+            for (uint8 slot = 0; slot < essences->AzeriteEssenceID.size(); ++slot)
+            {
+                AzeriteEssences.emplace_back();
+
+                AzeriteEssenceData& essence = AzeriteEssences.back();
+                essence.Index = slot;
+                essence.AzeriteEssenceID = essences->AzeriteEssenceID[slot];
+                if (essence.AzeriteEssenceID)
+                {
+                    essence.Rank = azeriteItem->GetEssenceRank(essence.AzeriteEssenceID);
+                    essence.SlotUnlocked = true;
+                }
+                else
+                    essence.SlotUnlocked = azeriteItem->HasUnlockedEssenceSlot(slot);
+            }
+        }
+    }
 }
 
-WorldPacket const* WorldPackets::Inspect::InspectResult::Write()
+WorldPacket const* InspectResult::Write()
 {
     _worldPacket << DisplayInfo;
     _worldPacket << uint32(Glyphs.size());
@@ -187,8 +224,8 @@ WorldPacket const* WorldPackets::Inspect::InspectResult::Write()
     if (!PvpTalents.empty())
         _worldPacket.append(PvpTalents.data(), PvpTalents.size());
 
-    _worldPacket.WriteBit(GuildData.is_initialized());
-    _worldPacket.WriteBit(AzeriteLevel.is_initialized());
+    _worldPacket.WriteBit(GuildData.has_value());
+    _worldPacket.WriteBit(AzeriteLevel.has_value());
     _worldPacket.FlushBits();
 
     for (PVPBracketData const& bracket : Bracket)
@@ -200,10 +237,13 @@ WorldPacket const* WorldPackets::Inspect::InspectResult::Write()
     if (AzeriteLevel)
         _worldPacket << int32(*AzeriteLevel);
 
+    _worldPacket << TalentTraits;
+
     return &_worldPacket;
 }
 
-void WorldPackets::Inspect::QueryInspectAchievements::Read()
+void QueryInspectAchievements::Read()
 {
     _worldPacket >> Guid;
+}
 }

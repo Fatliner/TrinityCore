@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -57,10 +57,17 @@ enum FOSCreatures
     NPC_CRUCIBLE_OF_SOULS           = 37094
 };
 
-template<typename AI>
-inline AI* GetForgeOfSoulsAI(Creature* creature)
+enum FOSWorldStates
 {
-    return GetInstanceAI<AI>(creature, FoSScriptName);
+    WORLD_STATE_THREE_FACED_FAILED  = 4927
+};
+
+template <class AI, class T>
+inline AI* GetForgeOfSoulsAI(T* obj)
+{
+    return GetInstanceAI<AI>(obj, FoSScriptName);
 }
+
+#define RegisterForgeOfSoulsCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetForgeOfSoulsAI)
 
 #endif // FORGE_OF_SOULS_H_

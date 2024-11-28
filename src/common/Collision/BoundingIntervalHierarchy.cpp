@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2010 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -120,8 +119,8 @@ void BIH::subdivide(int left, int right, std::vector<uint32> &tempTree, buildDat
                 // write bvh2 clip node
                 stats.updateInner();
                 tempTree[nodeIndex + 0] = (axis << 30) | (1 << 29) | nextIndex;
-                tempTree[nodeIndex + 1] = floatToRawIntBits(nodeL);
-                tempTree[nodeIndex + 2] = floatToRawIntBits(nodeR);
+                tempTree[nodeIndex + 1] = advstd::bit_cast<uint32>(nodeL);
+                tempTree[nodeIndex + 2] = advstd::bit_cast<uint32>(nodeR);
                 // update nodebox and recurse
                 nodeBox.lo[axis] = nodeL;
                 nodeBox.hi[axis] = nodeR;
@@ -186,15 +185,15 @@ void BIH::subdivide(int left, int right, std::vector<uint32> &tempTree, buildDat
                     // write leaf node
                     stats.updateInner();
                     tempTree[nodeIndex + 0] = (prevAxis << 30) | nextIndex;
-                    tempTree[nodeIndex + 1] = floatToRawIntBits(prevClip);
-                    tempTree[nodeIndex + 2] = floatToRawIntBits(G3D::finf());
+                    tempTree[nodeIndex + 1] = advstd::bit_cast<uint32>(prevClip);
+                    tempTree[nodeIndex + 2] = advstd::bit_cast<uint32>(G3D::finf());
                 } else {
                     // create a node with a right child
                     // write leaf node
                     stats.updateInner();
                     tempTree[nodeIndex + 0] = (prevAxis << 30) | (nextIndex - 3);
-                    tempTree[nodeIndex + 1] = floatToRawIntBits(-G3D::finf());
-                    tempTree[nodeIndex + 2] = floatToRawIntBits(prevClip);
+                    tempTree[nodeIndex + 1] = advstd::bit_cast<uint32>(-G3D::finf());
+                    tempTree[nodeIndex + 2] = advstd::bit_cast<uint32>(prevClip);
                 }
                 // count stats for the unused leaf
                 depth++;
@@ -225,8 +224,8 @@ void BIH::subdivide(int left, int right, std::vector<uint32> &tempTree, buildDat
     // write leaf node
     stats.updateInner();
     tempTree[nodeIndex + 0] = (axis << 30) | nextIndex;
-    tempTree[nodeIndex + 1] = floatToRawIntBits(clipL);
-    tempTree[nodeIndex + 2] = floatToRawIntBits(clipR);
+    tempTree[nodeIndex + 1] = advstd::bit_cast<uint32>(clipL);
+    tempTree[nodeIndex + 2] = advstd::bit_cast<uint32>(clipR);
     // prepare L/R child boxes
     AABound gridBoxL(gridBox), gridBoxR(gridBox);
     AABound nodeBoxL(nodeBox), nodeBoxR(nodeBox);

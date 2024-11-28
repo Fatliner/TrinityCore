@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -27,6 +26,7 @@
 #include <CascLib.h>
 #include <algorithm>
 #include <cstdio>
+#include "advstd.h"
 
 bool ExtractSingleModel(std::string& fname)
 {
@@ -43,9 +43,7 @@ bool ExtractSingleModel(std::string& fname)
     std::string originalName = fname;
 
     char* name = GetPlainName((char*)fname.c_str());
-    if (fname.substr(0, 4) != "FILE")
-        FixNameCase(name, strlen(name));
-    FixNameSpaces(name, strlen(name));
+    NormalizeFileName(name, strlen(name));
 
     std::string output(szWorkDirWmo);
     output += "/";
@@ -61,24 +59,18 @@ bool ExtractSingleModel(std::string& fname)
     return mdl.ConvertToVMAPModel(output.c_str());
 }
 
-extern CASC::StorageHandle CascStorage;
+extern std::shared_ptr<CASC::Storage> CascStorage;
 
-enum ModelTypes : uint32
+bool GetHeaderMagic(std::string const& fileName, std::array<char, 4>* magic)
 {
-    MODEL_MD20 = '02DM',
-    MODEL_MD21 = '12DM',
-    MODEL_WMO  = 'MVER'
-};
-
-bool GetHeaderMagic(std::string const& fileName, uint32* magic)
-{
-    *magic = 0;
-    CASC::FileHandle file = CASC::OpenFile(CascStorage, fileName.c_str(), CASC_LOCALE_ALL);
+    *magic = { };
+    std::unique_ptr<CASC::File> file(CascStorage->OpenFile(fileName.c_str(), CASC_LOCALE_ALL_WOW));
     if (!file)
         return false;
 
+    uint32 bytesToRead = uint32(magic->size() * sizeof(std::remove_pointer_t<decltype(magic)>::value_type));
     uint32 bytesRead = 0;
-    if (!CASC::ReadFile(file, magic, 4, &bytesRead) || bytesRead != 4)
+    if (!file->ReadFile(magic->data(), bytesToRead, &bytesRead) || bytesRead != bytesToRead)
         return false;
 
     return true;
@@ -88,11 +80,15 @@ void ExtractGameobjectModels()
 {
     printf("Extracting GameObject models...\n");
 
-    DB2CascFileSource source(CascStorage, GameobjectDisplayInfoLoadInfo::Instance()->Meta->FileDataId);
+    DB2CascFileSource source(CascStorage, GameobjectDisplayInfoLoadInfo::Instance.Meta->FileDataId);
     DB2FileLoader db2;
-    if (!db2.Load(&source, GameobjectDisplayInfoLoadInfo::Instance()))
+    try
     {
-        printf("Fatal error: Invalid GameObjectDisplayInfo.db2 file format!\n");
+        db2.Load(&source, &GameobjectDisplayInfoLoadInfo::Instance);
+    }
+    catch (std::exception const& e)
+    {
+        printf("Fatal error: Invalid GameObjectDisplayInfo.db2 file format!\n%s\n", e.what());
         exit(1);
     }
 
@@ -112,33 +108,36 @@ void ExtractGameobjectModels()
     for (uint32 rec = 0; rec < db2.GetRecordCount(); ++rec)
     {
         DB2Record record = db2.GetRecord(rec);
+        if (!record)
+            continue;
+
         uint32 fileId = record.GetUInt32("FileDataID");
         if (!fileId)
             continue;
 
-        std::string fileName = Trinity::StringFormat("FILE%08X.xxx", fileId);
+        std::string fileName = Trinity::StringFormat("FILE{:08X}.xxx", fileId);
         bool result = false;
-        uint32 header;
-        if (!GetHeaderMagic(fileName, &header))
+        std::array<char, 4> headerRaw;
+        if (!GetHeaderMagic(fileName, &headerRaw))
             continue;
 
-        uint8 isWmo = 0;
-        if (header == MODEL_WMO)
-        {
-            isWmo = 1;
+        std::string_view header(headerRaw.data(), headerRaw.size());
+        if (header == "REVM")
             result = ExtractSingleWmo(fileName);
-        }
-        else if (header == MODEL_MD20 || header == MODEL_MD21)
+        else if (header == "MD20" || header == "MD21")
             result = ExtractSingleModel(fileName);
+        else if (header == "BLP2")
+            continue;   // broken db2 data
         else
-            ASSERT(false, "%s header: %d - %c%c%c%c", fileName.c_str(), header, (header >> 24) & 0xFF, (header >> 16) & 0xFF, (header >> 8) & 0xFF, header & 0xFF);
+            ABORT_MSG("%s header: 0x%X%X%X%X - " STRING_VIEW_FMT, fileName.c_str(),
+                uint32(headerRaw[3]), uint32(headerRaw[2]), uint32(headerRaw[1]), uint32(headerRaw[0]),
+                STRING_VIEW_FMT_ARG(header));
 
         if (result)
         {
             uint32 displayId = record.GetId();
             uint32 path_length = fileName.length();
             fwrite(&displayId, sizeof(uint32), 1, model_list);
-            fwrite(&isWmo, sizeof(uint8), 1, model_list);
             fwrite(&path_length, sizeof(uint32), 1, model_list);
             fwrite(fileName.c_str(), sizeof(char), path_length, model_list);
         }

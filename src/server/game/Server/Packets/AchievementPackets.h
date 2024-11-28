@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,6 +20,9 @@
 
 #include "Packet.h"
 #include "ObjectGuid.h"
+#include "Optional.h"
+#include "PacketUtilities.h"
+#include "WowTime.h"
 
 namespace WorldPackets
 {
@@ -28,7 +31,7 @@ namespace WorldPackets
         struct EarnedAchievement
         {
             uint32 Id = 0;
-            time_t Date = time_t(0);
+            WowTime Date;
             ObjectGuid Owner;
             uint32 VirtualRealmAddress = 0;
             uint32 NativeRealmAddress = 0;
@@ -39,10 +42,12 @@ namespace WorldPackets
             uint32 Id = 0;
             uint64 Quantity = 0;
             ObjectGuid Player;
+            uint32 StateFlags = 0;
             uint32 Flags = 0;
-            time_t Date = time_t(0);
-            uint32 TimeFromStart = 0;
-            uint32 TimeFromCreate = 0;
+            WowTime Date;
+            Duration<Seconds> TimeFromStart;
+            Duration<Seconds> TimeFromCreate;
+            Optional<uint64> DynamicID;
         };
 
         struct AllAchievements
@@ -59,6 +64,16 @@ namespace WorldPackets
             WorldPacket const* Write() override;
 
             AllAchievements Data;
+        };
+
+        class AllAccountCriteria final : public ServerPacket
+        {
+        public:
+            AllAccountCriteria() : ServerPacket(SMSG_ALL_ACCOUNT_CRITERIA) { }
+
+            WorldPacket const* Write() override;
+
+            std::vector<CriteriaProgress> Progress;
         };
 
         class RespondInspectAchievements final : public ServerPacket
@@ -82,10 +97,22 @@ namespace WorldPackets
             uint32 CriteriaID = 0;
             uint64 Quantity = 0;
             ObjectGuid PlayerGUID;
+            uint32 StateFlags = 0;
             uint32 Flags = 0;
-            time_t CurrentTime = time_t(0);
-            uint32 ElapsedTime = 0;
-            uint32 CreationTime = 0;
+            WowTime CurrentTime;
+            Duration<Seconds> ElapsedTime;
+            Timestamp<> CreationTime;
+            Optional<uint64> DynamicID;
+        };
+
+        class AccountCriteriaUpdate final : public ServerPacket
+        {
+        public:
+            AccountCriteriaUpdate() : ServerPacket(SMSG_ACCOUNT_CRITERIA_UPDATE) { }
+
+            WorldPacket const* Write() override;
+
+            CriteriaProgress Progress;
         };
 
         class CriteriaDeleted final : public ServerPacket
@@ -120,7 +147,7 @@ namespace WorldPackets
             uint32 EarnerNativeRealm = 0;
             uint32 EarnerVirtualRealm = 0;
             uint32 AchievementID = 0;
-            time_t Time = time_t(0);
+            WowTime Time;
             bool Initial = false;
             ObjectGuid Sender;
         };
@@ -141,12 +168,13 @@ namespace WorldPackets
         struct GuildCriteriaProgress
         {
             int32 CriteriaID = 0;
-            uint32 DateCreated = 0;
-            uint32 DateStarted = 0;
-            time_t DateUpdated = 0;
+            Timestamp<> DateCreated;
+            Timestamp<> DateStarted;
+            WowTime DateUpdated;
             uint64 Quantity = 0;
             ObjectGuid PlayerGUID;
             int32 Flags = 0;
+            int32 StateFlags = 0;
         };
 
         class GuildCriteriaUpdate final : public ServerPacket
@@ -189,7 +217,7 @@ namespace WorldPackets
 
             ObjectGuid GuildGUID;
             uint32 AchievementID = 0;
-            time_t TimeDeleted = time_t(0);
+            WowTime TimeDeleted;
         };
 
         class GuildAchievementEarned final : public ServerPacket
@@ -201,7 +229,7 @@ namespace WorldPackets
 
             uint32 AchievementID = 0;
             ObjectGuid GuildGUID;
-            time_t TimeEarned = time_t(0);
+            WowTime TimeEarned;
         };
 
         class AllGuildAchievements final : public ServerPacket
@@ -245,9 +273,9 @@ namespace WorldPackets
             int32 AchievementID = 0;
             std::vector<GuildAchievementMember> Member;
         };
+
+        ByteBuffer& operator<<(ByteBuffer& data, CriteriaProgress const& criteria);
     }
 }
-
-ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Achievement::CriteriaProgress const& criteria);
 
 #endif // game_AchievementPackets_h__

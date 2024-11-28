@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -50,17 +50,6 @@ namespace WorldPackets
             ObjectGuid Guid;
         };
 
-        class BlackMarketOpenResult final : public ServerPacket
-        {
-        public:
-            BlackMarketOpenResult() : ServerPacket(SMSG_BLACK_MARKET_OPEN_RESULT, 15) { }
-
-            WorldPacket const* Write() override;
-
-            ObjectGuid Guid;
-            bool Enable = true;
-        };
-
         class BlackMarketRequestItems final : public ClientPacket
         {
         public:
@@ -69,7 +58,7 @@ namespace WorldPackets
             void Read() override;
 
             ObjectGuid Guid;
-            uint32 LastUpdateID = 0;
+            Timestamp<> LastUpdateID;
         };
 
         class BlackMarketRequestItemsResult final : public ServerPacket
@@ -79,7 +68,7 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            int32 LastUpdateID = 0;
+            Timestamp<> LastUpdateID;
             std::vector<BlackMarketItem> Items;
         };
 

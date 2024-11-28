@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,18 +15,22 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef IPLOCATION_H
+#define IPLOCATION_H
+
 #include "Define.h"
+#include <array>
 #include <string>
 #include <vector>
 
 struct IpLocationRecord
 {
-    IpLocationRecord() : IpFrom(0), IpTo(0) { }
-    IpLocationRecord(uint32 ipFrom, uint32 ipTo, std::string countryCode, std::string countryName)
+    IpLocationRecord() : IpFrom(), IpTo() { }
+    IpLocationRecord(std::array<uint8, 16> ipFrom, std::array<uint8, 16> ipTo, std::string&& countryCode, std::string&& countryName)
         : IpFrom(ipFrom), IpTo(ipTo), CountryCode(std::move(countryCode)), CountryName(std::move(countryName)) { }
 
-    uint32 IpFrom;
-    uint32 IpTo;
+    std::array<uint8, 16> IpFrom;
+    std::array<uint8, 16> IpTo;
     std::string CountryCode;
     std::string CountryName;
 };
@@ -35,6 +39,10 @@ class TC_COMMON_API IpLocationStore
 {
     public:
         IpLocationStore();
+        IpLocationStore(IpLocationStore const&) = delete;
+        IpLocationStore(IpLocationStore&&) = delete;
+        IpLocationStore& operator=(IpLocationStore const&) = delete;
+        IpLocationStore& operator=(IpLocationStore&&) = delete;
         ~IpLocationStore();
         static IpLocationStore* Instance();
 
@@ -46,3 +54,5 @@ class TC_COMMON_API IpLocationStore
 };
 
 #define sIPLocation IpLocationStore::Instance()
+
+#endif

@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,16 +19,13 @@
 #include "Containers.h"
 #include "DatabaseEnv.h"
 #include "DB2Stores.h"
+#include "ItemBonusMgr.h"
 #include "ItemTemplate.h"
 #include "Log.h"
 #include "ObjectMgr.h"
-#include "Random.h"
 #include "Timer.h"
-#include "Util.h"
-
 #include <list>
 #include <vector>
-#include <stdlib.h>
 
 namespace
 {
@@ -63,15 +59,15 @@ void LoadItemRandomBonusListTemplates()
             uint32 bonusListId = fields[1].GetUInt32();
             float chance = fields[2].GetFloat();
 
-            if (!sDB2Manager.GetItemBonusList(bonusListId))
+            if (ItemBonusMgr::GetItemBonuses(bonusListId).empty())
             {
-                TC_LOG_ERROR("sql.sql", "Bonus list %d used in `item_random_bonus_list_template` by id %u doesn't have exist in ItemBonus.db2", bonusListId, id);
+                TC_LOG_ERROR("sql.sql", "Bonus list {} used in `item_random_bonus_list_template` by id {} doesn't have exist in ItemBonus.db2", bonusListId, id);
                 continue;
             }
 
             if (chance < 0.000001f || chance > 100.0f)
             {
-                TC_LOG_ERROR("sql.sql", "Bonus list %d used in `item_random_bonus_list_template` by id %u has invalid chance %f", bonusListId, id, chance);
+                TC_LOG_ERROR("sql.sql", "Bonus list {} used in `item_random_bonus_list_template` by id {} has invalid chance {}", bonusListId, id, chance);
                 continue;
             }
 
@@ -82,10 +78,10 @@ void LoadItemRandomBonusListTemplates()
             ++count;
         } while (result->NextRow());
 
-        TC_LOG_INFO("server.loading", ">> Loaded %u Random item bonus list definitions in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+        TC_LOG_INFO("server.loading", ">> Loaded {} Random item bonus list definitions in {} ms", count, GetMSTimeDiffToNow(oldMSTime));
     }
     else
-        TC_LOG_ERROR("server.loading", ">> Loaded 0 Random item bonus list definitions. DB table `item_random_bonus_list_template` is empty.");
+        TC_LOG_INFO("server.loading", ">> Loaded 0 Random item bonus list definitions. DB table `item_random_bonus_list_template` is empty.");
 }
 
 ItemRandomBonusListId GenerateItemRandomBonusListId(uint32 item_id)
@@ -101,14 +97,14 @@ ItemRandomBonusListId GenerateItemRandomBonusListId(uint32 item_id)
     auto tab = _storage.find(itemProto->RandomBonusListTemplateId);
     if (tab == _storage.end())
     {
-        TC_LOG_ERROR("sql.sql", "Item RandomBonusListTemplateId id #%u used in `item_template_addon` but it does not have records in `item_random_bonus_list_template` table.", itemProto->RandomBonusListTemplateId);
+        TC_LOG_ERROR("sql.sql", "Item RandomBonusListTemplateId id #{} used in `item_template_addon` but it does not have records in `item_random_bonus_list_template` table.", itemProto->RandomBonusListTemplateId);
         return 0;
     }
 
-    return *Trinity::Containers::SelectRandomWeightedContainerElement(tab->second.BonusListIDs, tab->second.Chances);
+    return *Trinity::Containers::SelectRandomWeightedContainerElement(tab->second.BonusListIDs, std::span(tab->second.Chances));
 }
 
-TC_GAME_API uint32 GetRandomPropertyPoints(uint32 itemLevel, uint32 quality, uint32 inventoryType, uint32 subClass)
+TC_GAME_API float GetRandomPropertyPoints(uint32 itemLevel, uint32 quality, uint32 inventoryType, uint32 subClass)
 {
     uint32 propIndex;
 
@@ -164,14 +160,14 @@ TC_GAME_API uint32 GetRandomPropertyPoints(uint32 itemLevel, uint32 quality, uin
     switch (quality)
     {
         case ITEM_QUALITY_UNCOMMON:
-            return randPropPointsEntry->Good[propIndex];
+            return randPropPointsEntry->GoodF[propIndex];
         case ITEM_QUALITY_RARE:
         case ITEM_QUALITY_HEIRLOOM:
-            return randPropPointsEntry->Superior[propIndex];
+            return randPropPointsEntry->SuperiorF[propIndex];
         case ITEM_QUALITY_EPIC:
         case ITEM_QUALITY_LEGENDARY:
         case ITEM_QUALITY_ARTIFACT:
-            return randPropPointsEntry->Epic[propIndex];
+            return randPropPointsEntry->EpicF[propIndex];
     }
 
     return 0;

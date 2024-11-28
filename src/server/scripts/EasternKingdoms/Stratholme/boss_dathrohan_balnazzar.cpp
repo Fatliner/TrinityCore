@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -80,9 +79,9 @@ public:
         return GetStratholmeAI<boss_dathrohan_balnazzarAI>(creature);
     }
 
-    struct boss_dathrohan_balnazzarAI : public ScriptedAI
+    struct boss_dathrohan_balnazzarAI : public BossAI
     {
-        boss_dathrohan_balnazzarAI(Creature* creature) : ScriptedAI(creature)
+        boss_dathrohan_balnazzarAI(Creature* creature) : BossAI(creature, BOSS_BALNAZZAR)
         {
             Initialize();
         }
@@ -112,24 +111,20 @@ public:
 
         void Reset() override
         {
+            BossAI::Reset();
+
             Initialize();
 
             if (me->GetEntry() == NPC_BALNAZZAR)
                 me->UpdateEntry(NPC_DATHROHAN);
         }
 
-        void JustDied(Unit* /*killer*/) override
+        void JustDied(Unit* killer) override
         {
-            static uint32 uiCount = sizeof(m_aSummonPoint)/sizeof(SummonDef);
+            BossAI::JustDied(killer);
 
-            for (uint8 i=0; i<uiCount; ++i)
-                me->SummonCreature(NPC_ZOMBIE,
-                m_aSummonPoint[i].m_fX, m_aSummonPoint[i].m_fY, m_aSummonPoint[i].m_fZ, m_aSummonPoint[i].m_fOrient,
-                TEMPSUMMON_TIMED_DESPAWN, HOUR*IN_MILLISECONDS);
-        }
-
-        void EnterCombat(Unit* /*who*/) override
-        {
+            for (SummonDef const& summon : m_aSummonPoint)
+                me->SummonCreature(NPC_ZOMBIE, summon.m_fX, summon.m_fY, summon.m_fZ, summon.m_fOrient, TEMPSUMMON_TIMED_DESPAWN, 1h);
         }
 
         void UpdateAI(uint32 uiDiff) override
@@ -199,7 +194,7 @@ public:
                 //PsychicScream
                 if (m_uiPsychicScream_Timer <= uiDiff)
                 {
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                         DoCast(target, SPELL_PSYCHICSCREAM);
 
                     m_uiPsychicScream_Timer = 20000;
@@ -208,7 +203,7 @@ public:
                 //DeepSleep
                 if (m_uiDeepSleep_Timer <= uiDiff)
                 {
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                         DoCast(target, SPELL_SLEEP);
 
                     m_uiDeepSleep_Timer = 15000;
@@ -221,8 +216,6 @@ public:
                     m_uiMindControl_Timer = 15000;
                 } else m_uiMindControl_Timer -= uiDiff;
             }
-
-            DoMeleeAttackIfReady();
         }
     };
 

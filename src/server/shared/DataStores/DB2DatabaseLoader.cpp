@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,22 +21,16 @@
 #include "DB2Meta.h"
 #include "Errors.h"
 #include "Log.h"
-
-DB2LoadInfo::DB2LoadInfo() : DB2FileLoadInfo(), Statement(MAX_HOTFIXDATABASE_STATEMENTS)
-{
-}
-
-DB2LoadInfo::DB2LoadInfo(DB2FieldMeta const* fields, std::size_t fieldCount, DB2Meta const* meta, HotfixDatabaseStatements statement)
-    : DB2FileLoadInfo(fields, fieldCount, meta), Statement(statement)
-{
-}
+#include <cstring>
 
 static char const* nullStr = "";
 
-char* DB2DatabaseLoader::Load(uint32& records, char**& indexTable, char*& stringHolders, std::vector<char*>& stringPool)
+char* DB2DatabaseLoader::Load(bool custom, uint32& records, char**& indexTable, std::vector<char*>& stringPool, uint32& minId)
 {
     // Even though this query is executed only once, prepared statement is used to send data from mysql server in binary format
-    PreparedQueryResult result = HotfixDatabase.Query(HotfixDatabase.GetPreparedStatement(_loadInfo->Statement));
+    HotfixDatabasePreparedStatement* stmt = HotfixDatabase.GetPreparedStatement(_loadInfo->Statement);
+    stmt->setBool(0, !custom);
+    PreparedQueryResult result = HotfixDatabase.Query(stmt);
     if (!result)
         return nullptr;
 
@@ -49,28 +43,12 @@ char* DB2DatabaseLoader::Load(uint32& records, char**& indexTable, char*& string
 
     // we store flat holders pool as single memory block
     std::size_t stringFields = _loadInfo->GetStringFieldCount(false);
-    std::size_t localizedStringFields = _loadInfo->GetStringFieldCount(true);
-
-    // each string field at load have array of string for each locale
-    std::size_t stringHoldersRecordPoolSize = localizedStringFields * sizeof(LocalizedString) + (stringFields - localizedStringFields) * sizeof(char*);
-
-    if (stringFields)
-    {
-        std::size_t stringHoldersPoolSize = stringHoldersRecordPoolSize * result->GetRowCount();
-        stringHolders = new char[stringHoldersPoolSize];
-
-        // DB2 strings expected to have at least empty string
-        for (std::size_t i = 0; i < stringHoldersPoolSize / sizeof(char*); ++i)
-            ((char const**)stringHolders)[i] = nullStr;
-    }
-    else
-        stringHolders = nullptr;
 
     // Resize index table
-    // database query *MUST* contain ORDER BY `index_field` DESC clause
-    uint32 indexTableSize = (*result)[indexField].GetUInt32() + 1;
-    if (indexTableSize < records)
-        indexTableSize = records;
+    uint32 indexTableSize = records;
+    if (PreparedQueryResult maxIdResult = HotfixDatabase.Query(HotfixDatabase.GetPreparedStatement(HotfixDatabaseStatements(_loadInfo->Statement + HOTFIX_MAX_ID_STMT_OFFSET))))
+        if (uint32((*maxIdResult)[0].GetUInt64()) > records)
+            indexTableSize = uint32((*maxIdResult)[0].GetUInt64());
 
     if (indexTableSize > records)
     {
@@ -82,17 +60,20 @@ char* DB2DatabaseLoader::Load(uint32& records, char**& indexTable, char*& string
     }
 
     char* tempDataTable = new char[result->GetRowCount() * recordSize];
+    memset(tempDataTable, 0, result->GetRowCount() * recordSize);
     uint32* newIndexes = new uint32[result->GetRowCount()];
-    uint32 rec = 0;
+    if (stringFields)
+        stringPool.reserve(std::max<uint64>(stringPool.capacity(), stringPool.size() + stringFields * result->GetRowCount() + 1));
+
     uint32 newRecords = 0;
 
     do
     {
         Field* fields = result->Fetch();
         uint32 offset = 0;
-        uint32 stringFieldOffset = 0;
 
         uint32 indexValue = fields[indexField].GetUInt32();
+        bool isNew = false;
 
         // Attempt to overwrite existing data
         char* dataValue = indexTable[indexValue];
@@ -100,6 +81,7 @@ char* DB2DatabaseLoader::Load(uint32& records, char**& indexTable, char*& string
         {
             newIndexes[newRecords] = indexValue;
             dataValue = &tempDataTable[newRecords++ * recordSize];
+            isNew = true;
         }
 
         uint32 f = 0;
@@ -114,7 +96,7 @@ char* DB2DatabaseLoader::Load(uint32& records, char**& indexTable, char*& string
         {
             for (uint32 z = 0; z < _loadInfo->Meta->Fields[x].ArraySize; ++z)
             {
-                switch (_loadInfo->TypesString[f])
+                switch (_loadInfo->Fields[f].Type)
                 {
                     case FT_FLOAT:
                         *((float*)(&dataValue[offset])) = fields[f].GetFloat();
@@ -138,35 +120,34 @@ char* DB2DatabaseLoader::Load(uint32& records, char**& indexTable, char*& string
                         break;
                     case FT_STRING:
                     {
-                        LocalizedString** slot = (LocalizedString**)(&dataValue[offset]);
-                        *slot = (LocalizedString*)(&stringHolders[stringHoldersRecordPoolSize * rec + stringFieldOffset]);
-                        ASSERT(*slot);
+                        LocalizedString* slot = (LocalizedString*)(&dataValue[offset]);
+                        if (isNew)
+                            for (char const*& localeStr : slot->Str)
+                                localeStr = nullStr;
 
                         // Value in database in main table field must be for enUS locale
-                        if (char* str = AddString(&(*slot)->Str[LOCALE_enUS], fields[f].GetString()))
+                        if (char* str = AddString(&slot->Str[LOCALE_enUS], fields[f].GetString()))
                             stringPool.push_back(str);
 
-                        stringFieldOffset += sizeof(LocalizedString);
-                        offset += sizeof(char*);
+                        offset += sizeof(LocalizedString);
                         break;
                     }
                     case FT_STRING_NOT_LOCALIZED:
                     {
                         char const** slot = (char const**)(&dataValue[offset]);
-                        *slot = (char*)(&stringHolders[stringHoldersRecordPoolSize * rec + stringFieldOffset]);
-                        ASSERT(*slot);
 
                         // Value in database in main table field must be for enUS locale
                         if (char* str = AddString(slot, fields[f].GetString()))
                             stringPool.push_back(str);
+                        else
+                            *slot = nullStr;
 
-                        stringFieldOffset += sizeof(char*);
                         offset += sizeof(char*);
                         break;
                     }
                     default:
-                        ASSERT(false, "Unknown format character '%c' found in %s meta for field %s",
-                            _loadInfo->TypesString[f], _storageName.c_str(), _loadInfo->Fields[f].Name);
+                        ABORT_MSG("Unknown format character '%c' found in %s meta for field %s",
+                            _loadInfo->Fields[f].Type, _storageName.c_str(), _loadInfo->Fields[f].Name);
                         break;
                 }
                 ++f;
@@ -174,7 +155,6 @@ char* DB2DatabaseLoader::Load(uint32& records, char**& indexTable, char*& string
         }
 
         ASSERT(offset == recordSize);
-        ++rec;
     } while (result->NextRow());
 
     if (!newRecords)
@@ -190,7 +170,11 @@ char* DB2DatabaseLoader::Load(uint32& records, char**& indexTable, char*& string
 
     // insert new records to index table
     for (uint32 i = 0; i < newRecords; ++i)
-        indexTable[newIndexes[i]] = &dataTable[i * recordSize];
+    {
+        uint32 newId = newIndexes[i];
+        indexTable[newId] = &dataTable[i * recordSize];
+        minId = std::min(minId, newId);
+    }
 
     delete[] tempDataTable;
     delete[] newIndexes;
@@ -200,10 +184,11 @@ char* DB2DatabaseLoader::Load(uint32& records, char**& indexTable, char*& string
     return dataTable;
 }
 
-void DB2DatabaseLoader::LoadStrings(uint32 locale, uint32 records, char** indexTable, std::vector<char*>& stringPool)
+void DB2DatabaseLoader::LoadStrings(bool custom, LocaleConstant locale, uint32 records, char** indexTable, std::vector<char*>& stringPool)
 {
-    HotfixDatabasePreparedStatement* stmt = HotfixDatabase.GetPreparedStatement(HotfixDatabaseStatements(_loadInfo->Statement + 1));
-    stmt->setString(0, localeNames[locale]);
+    HotfixDatabasePreparedStatement* stmt = HotfixDatabase.GetPreparedStatement(HotfixDatabaseStatements(_loadInfo->Statement + HOTFIX_LOCALE_STMT_OFFSET));
+    stmt->setBool(0, !custom);
+    stmt->setString(1, localeNames[locale]);
     PreparedQueryResult result = HotfixDatabase.Query(stmt);
     if (!result)
         return;
@@ -214,6 +199,8 @@ void DB2DatabaseLoader::LoadStrings(uint32 locale, uint32 records, char** indexT
 
     uint32 fieldCount = _loadInfo->Meta->FieldCount;
     uint32 recordSize = _loadInfo->Meta->GetRecordSize();
+
+    stringPool.reserve(std::max<uint64>(stringPool.capacity(), stringPool.size() + stringFields * result->GetRowCount() + 1));
 
     do
     {
@@ -239,7 +226,7 @@ void DB2DatabaseLoader::LoadStrings(uint32 locale, uint32 records, char** indexT
             {
                 for (uint32 z = 0; z < _loadInfo->Meta->Fields[x].ArraySize; ++z)
                 {
-                    switch (_loadInfo->TypesString[fieldIndex])
+                    switch (_loadInfo->Fields[fieldIndex].Type)
                     {
                         case FT_FLOAT:
                         case FT_INT:
@@ -257,21 +244,20 @@ void DB2DatabaseLoader::LoadStrings(uint32 locale, uint32 records, char** indexT
                         case FT_STRING:
                         {
                             // fill only not filled entries
-                            LocalizedString* db2str = *(LocalizedString**)(&dataValue[offset]);
-                            if (db2str->Str[locale] == nullStr)
-                                if (char* str = AddString(&db2str->Str[locale], fields[1 + stringFieldNumInRecord].GetString()))
-                                    stringPool.push_back(str);
+                            LocalizedString* db2str = (LocalizedString*)(&dataValue[offset]);
+                            if (char* str = AddString(&db2str->Str[locale], fields[1 + stringFieldNumInRecord].GetString()))
+                                stringPool.push_back(str);
 
                             ++stringFieldNumInRecord;
-                            offset += sizeof(LocalizedString*);
+                            offset += sizeof(LocalizedString);
                             break;
                         }
                         case FT_STRING_NOT_LOCALIZED:
                             offset += sizeof(char*);
                             break;
                         default:
-                            ASSERT(false, "Unknown format character '%c' found in %s meta for field %s",
-                                _loadInfo->TypesString[fieldIndex], _storageName.c_str(), _loadInfo->Fields[fieldIndex].Name);
+                            ABORT_MSG("Unknown format character '%c' found in %s meta for field %s",
+                                _loadInfo->Fields[fieldIndex].Type, _storageName.c_str(), _loadInfo->Fields[fieldIndex].Name);
                             break;
                     }
                     ++fieldIndex;
@@ -281,27 +267,15 @@ void DB2DatabaseLoader::LoadStrings(uint32 locale, uint32 records, char** indexT
             ASSERT(offset == recordSize);
         }
         else
-            TC_LOG_ERROR("sql.sql", "Hotfix locale table for storage %s references row that does not exist %u locale %s!", _storageName.c_str(), indexValue, localeNames[locale]);
+            TC_LOG_ERROR("sql.sql", "Hotfix locale table for storage {} references row that does not exist {} locale {}!", _storageName, indexValue, localeNames[locale]);
 
     } while (result->NextRow());
-
-    return;
 }
 
 char* DB2DatabaseLoader::AddString(char const** holder, std::string const& value)
 {
     if (!value.empty())
     {
-        std::size_t existingLength = strlen(*holder);
-        if (existingLength >= value.length())
-        {
-            // Reuse existing storage if there is enough space
-            char* str = const_cast<char*>(*holder);
-            memcpy(str, value.c_str(), value.length());
-            str[value.length()] = '\0';
-            return nullptr;
-        }
-
         char* str = new char[value.length() + 1];
         memcpy(str, value.c_str(), value.length());
         str[value.length()] = '\0';

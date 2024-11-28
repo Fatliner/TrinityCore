@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -45,7 +44,7 @@ public:
     /// Stops all network threads, It will wait for all running threads .
     void StopNetwork() override;
 
-    void OnSocketOpen(tcp::socket&& sock, uint32 threadIndex) override;
+    void OnSocketOpen(boost::asio::ip::tcp::socket&& sock, uint32 threadIndex) override;
 
     std::size_t GetApplicationSendBufferSize() const { return _socketApplicationSendBufferSize; }
 

@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,10 +19,14 @@
 #define TRINITY_WAYPOINTMANAGER_H
 
 #include "Define.h"
+#include "Field.h"
+#include "Hash.h"
+#include "ObjectGuid.h"
+#include "Position.h"
 #include "WaypointDefines.h"
 #include <unordered_map>
 
-typedef std::unordered_map<uint32, WaypointPath> WaypointPathContainer;
+class Unit;
 
 class TC_GAME_API WaypointMgr
 {
@@ -31,26 +34,38 @@ class TC_GAME_API WaypointMgr
         static WaypointMgr* instance();
 
         // Attempts to reload a single path from database
-        void ReloadPath(uint32 id);
+        void ReloadPath(uint32 pathId);
 
         // Loads all paths from database, should only run on startup
-        void Load();
+        void LoadPaths();
+        void LoadPathFromDB(Field* fields);
+        void LoadPathNodesFromDB(Field* fields);
+        void DoPostLoadingChecks();
 
-        // Returns the path from a given id
-        WaypointPath const* GetPath(uint32 id) const
-        {
-            WaypointPathContainer::const_iterator itr = _waypointStore.find(id);
-            if (itr != _waypointStore.end())
-                return &itr->second;
+        void VisualizePath(Unit* owner, WaypointPath const* path, Optional<uint32> displayId);
+        void DevisualizePath(Unit* owner, WaypointPath const* path);
 
-            return nullptr;
-        }
+        void MoveNode(WaypointPath const* path, WaypointNode const* node, Position const& pos);
+        void DeleteNode(WaypointPath const* path, WaypointNode const* node);
+        void DeleteNode(uint32 pathId, uint32 nodeId);
+
+        WaypointPath const* GetPath(uint32 pathId) const;
+        WaypointNode const* GetNode(WaypointPath const* path, uint32 nodeId) const;
+        WaypointNode const* GetNode(uint32 pathId, uint32 nodeId) const;
+        WaypointPath const* GetPathByVisualGUID(ObjectGuid guid) const;
+        WaypointNode const* GetNodeByVisualGUID(ObjectGuid guid) const;
+        ObjectGuid const& GetVisualGUIDByNode(uint32 pathId, uint32 nodeId) const;
 
     private:
-        WaypointMgr();
-        ~WaypointMgr() { }
+        WaypointMgr() { }
 
-        std::unordered_map<uint32, WaypointPath> _waypointStore;
+        void _LoadPaths();
+        void _LoadPathNodes();
+
+        std::unordered_map<uint32 /*pathId*/, WaypointPath> _pathStore;
+
+        std::unordered_map<std::pair<uint32 /*pathId*/, uint32 /*nodeId*/>, ObjectGuid> _nodeToVisualWaypointGUIDsMap;
+        std::unordered_map<ObjectGuid, std::pair<WaypointPath const*, WaypointNode const*>> _visualWaypointGUIDToNodeMap;
 };
 
 #define sWaypointMgr WaypointMgr::instance()

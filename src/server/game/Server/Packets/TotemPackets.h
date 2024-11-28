@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -18,8 +18,9 @@
 #ifndef TotemPackets_h__
 #define TotemPackets_h__
 
-#include "Packet.h"
 #include "ObjectGuid.h"
+#include "Packet.h"
+#include "PacketUtilities.h"
 
 namespace WorldPackets
 {
@@ -45,7 +46,7 @@ namespace WorldPackets
 
             ObjectGuid Totem;
             int32 SpellID = 0;
-            int32 Duration = 0;
+            WorldPackets::Duration<Milliseconds, int32> Duration;
             uint8 Slot = 0;
             float TimeMod = 1.0f;
             bool CannotDismiss = false;

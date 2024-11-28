@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,11 +15,11 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #ifndef _DYNTREE_H
 #define _DYNTREE_H
 
 #include "Define.h"
+#include "Optional.h"
 
 namespace G3D
 {
@@ -31,6 +30,11 @@ namespace G3D
 class GameObjectModel;
 class PhaseShift;
 struct DynTreeImpl;
+
+namespace VMAP
+{
+    struct AreaAndLiquidData;
+}
 
 class TC_COMMON_API DynamicMapTree
 {
@@ -46,11 +50,11 @@ public:
     bool getObjectHitPos(G3D::Vector3 const& startPos, G3D::Vector3 const& endPos, G3D::Vector3& resultHitPos, float modifyDist, PhaseShift const& phaseShift) const;
 
     float getHeight(float x, float y, float z, float maxSearchDist, PhaseShift const& phaseShift) const;
-    bool getAreaInfo(float x, float y, float& z, PhaseShift const& phaseShift, uint32& flags, int32& adtId, int32& rootId, int32& groupId) const;
+    bool getAreaAndLiquidData(float x, float y, float z, PhaseShift const& phaseShift, Optional<uint8> reqLiquidType, VMAP::AreaAndLiquidData& data) const;
 
-    void insert(const GameObjectModel&);
-    void remove(const GameObjectModel&);
-    bool contains(const GameObjectModel&) const;
+    void insert(GameObjectModel const&);
+    void remove(GameObjectModel const&);
+    bool contains(GameObjectModel const&) const;
 
     void balance();
     void update(uint32 diff);

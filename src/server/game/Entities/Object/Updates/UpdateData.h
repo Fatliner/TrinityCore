@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -38,17 +37,19 @@ class UpdateData
 {
     public:
         UpdateData(uint32 map);
-        UpdateData(UpdateData&& right) : m_map(right.m_map), m_blockCount(right.m_blockCount),
+        UpdateData(UpdateData&& right) noexcept : m_map(right.m_map), m_blockCount(right.m_blockCount),
             m_outOfRangeGUIDs(std::move(right.m_outOfRangeGUIDs)),
             m_data(std::move(right.m_data))
         {
         }
 
+        void AddDestroyObject(ObjectGuid guid);
         void AddOutOfRangeGUID(GuidSet& guids);
         void AddOutOfRangeGUID(ObjectGuid guid);
-        void AddUpdateBlock(const ByteBuffer &block);
+        void AddUpdateBlock() { ++m_blockCount; }
+        ByteBuffer& GetBuffer() { return m_data; }
         bool BuildPacket(WorldPacket* packet);
-        bool HasData() const { return m_blockCount > 0 || !m_outOfRangeGUIDs.empty(); }
+        bool HasData() const { return m_blockCount > 0 || !m_outOfRangeGUIDs.empty() || !m_destroyGUIDs.empty(); }
         void Clear();
 
         GuidSet const& GetOutOfRangeGUIDs() const { return m_outOfRangeGUIDs; }
@@ -56,6 +57,7 @@ class UpdateData
     protected:
         uint32 m_map;
         uint32 m_blockCount;
+        GuidSet m_destroyGUIDs;
         GuidSet m_outOfRangeGUIDs;
         ByteBuffer m_data;
 

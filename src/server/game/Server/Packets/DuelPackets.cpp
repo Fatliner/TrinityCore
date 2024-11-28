@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,6 +20,7 @@
 void WorldPackets::Duel::CanDuel::Read()
 {
     _worldPacket >> TargetGUID;
+    ToTheDeath = _worldPacket.ReadBit();
 }
 
 WorldPacket const* WorldPackets::Duel::CanDuelResult::Write()
@@ -51,6 +52,8 @@ WorldPacket const* WorldPackets::Duel::DuelRequested::Write()
     _worldPacket << ArbiterGUID;
     _worldPacket << RequestedByGUID;
     _worldPacket << RequestedByWowAccount;
+    _worldPacket.WriteBit(ToTheDeath);
+    _worldPacket.FlushBits();
 
     return &_worldPacket;
 }

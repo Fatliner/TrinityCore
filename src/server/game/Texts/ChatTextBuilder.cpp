@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,30 +16,113 @@
  */
 
 #include "ChatTextBuilder.h"
-#include "ChatPackets.h"
+#include "CreatureTextMgr.h"
 #include "DB2Stores.h"
+#include "LanguageMgr.h"
 #include "ObjectMgr.h"
+#include "Player.h"
+#include "WorldSession.h"
 #include <cstdarg>
 
-WorldPackets::Packet* Trinity::BroadcastTextBuilder::operator()(LocaleConstant locale) const
+namespace Trinity
+{
+ChatPacketSender::ChatPacketSender(ChatMsg chatType, ::Language language, WorldObject const* sender, WorldObject const* receiver,
+    std::string message, uint32 achievementId /*= 0*/, LocaleConstant locale /*= LOCALE_enUS*/, uint32 broadcastTextId /*= 0*/, uint16 emoteId /*= 0*/, uint32 soundKitId /*= 0*/, SoundKitPlayType soundKitPlayType /*= SoundKitPlayType::Normal*/, uint32 playerConditionId /*= 0*/)
+    : Type(chatType), Language(language), Sender(sender), Receiver(receiver), Text(std::move(message)), AchievementId(achievementId), Locale(locale), PlayerConditionID(playerConditionId)
+{
+    UntranslatedPacket.Initialize(Type, Language, Sender, Receiver, Text, AchievementId, "", Locale);
+    UntranslatedPacket.Write();
+
+    if (sender && sender->IsUnit() && emoteId)
+    {
+        EmotePacket.emplace();
+        EmotePacket->Guid = sender->GetGUID();
+        EmotePacket->EmoteID = emoteId;
+        EmotePacket->Write();
+    }
+
+    SoundPacket = nullptr;
+    if (soundKitId)
+    {
+        if (soundKitPlayType == SoundKitPlayType::Normal)
+        {
+            SoundPacket = std::make_unique<WorldPackets::Misc::PlaySound>(
+                sender ? sender->GetGUID() : ObjectGuid::Empty,
+                soundKitId,
+                broadcastTextId
+            );
+        }
+        else if (soundKitPlayType == SoundKitPlayType::ObjectSound)
+        {
+            SoundPacket = std::make_unique<WorldPackets::Misc::PlayObjectSound>(
+                receiver ? receiver->GetGUID() : ObjectGuid::Empty,
+                sender ? sender->GetGUID() : ObjectGuid::Empty,
+                soundKitId,
+                receiver ? receiver->GetWorldLocation() : Position(0, 0, 0),
+                broadcastTextId
+            );
+        }
+        SoundPacket->Write();
+    }
+}
+
+void ChatPacketSender::operator()(Player const* player) const
+{
+    if (!player->MeetPlayerCondition(PlayerConditionID))
+        return;
+
+    if (SoundPacket)
+        player->SendDirectMessage(SoundPacket->GetRawPacket());
+
+    if (EmotePacket)
+        player->SendDirectMessage(EmotePacket->GetRawPacket());
+
+    if (Language == LANG_UNIVERSAL || Language == LANG_ADDON || Language == LANG_ADDON_LOGGED || player->CanUnderstandLanguage(Language))
+    {
+        player->SendDirectMessage(UntranslatedPacket.GetRawPacket());
+        return;
+    }
+
+    if (!TranslatedPacket)
+    {
+        TranslatedPacket.emplace();
+        TranslatedPacket->Initialize(Type, Language, Sender, Receiver, sLanguageMgr->Translate(Text, Language, player->GetSession()->GetSessionDbcLocale()),
+            AchievementId, "", Locale);
+        TranslatedPacket->Write();
+    }
+
+    player->SendDirectMessage(TranslatedPacket->GetRawPacket());
+}
+
+ChatPacketSender* BroadcastTextBuilder::operator()(LocaleConstant locale) const
 {
     BroadcastTextEntry const* bct = sBroadcastTextStore.LookupEntry(_textId);
-    WorldPackets::Chat::Chat* chat = new WorldPackets::Chat::Chat();
-    chat->Initialize(_msgType, bct ? Language(bct->LanguageID) : LANG_UNIVERSAL, _source, _target, bct ? DB2Manager::GetBroadcastTextValue(bct, locale, _gender) : "", _achievementId, "", locale);
-    return chat;
+    Unit const* unitSender = Object::ToUnit(_source);
+    uint8 const gender = unitSender ? unitSender->GetGender() : GENDER_UNKNOWN;
+    uint32 soundKitId = bct ? bct->SoundKitID[gender == GENDER_FEMALE ? 1 : 0] : 0;
+
+    return new ChatPacketSender(_msgType,
+        bct ? Language(bct->LanguageID) : LANG_UNIVERSAL,
+        _source,
+        _target,
+        bct ? DB2Manager::GetBroadcastTextValue(bct, locale, _gender) : "",
+        _achievementId,
+        locale,
+        bct ? bct->ID : 0,
+        bct ? bct->EmotesID : 0,
+        soundKitId,
+        SoundKitPlayType::Normal,
+        bct ? bct->ConditionID : 0
+    );
 }
 
-WorldPackets::Packet* Trinity::CustomChatTextBuilder::operator()(LocaleConstant locale) const
+ChatPacketSender* CustomChatTextBuilder::operator()(LocaleConstant locale) const
 {
-    WorldPackets::Chat::Chat* chat = new WorldPackets::Chat::Chat();
-    chat->Initialize(_msgType, _language, _source, _target, _text, 0, "", locale);
-    return chat;
+    return new ChatPacketSender(_msgType, _language, _source, _target, _text, 0, locale);
 }
 
-WorldPackets::Packet* Trinity::TrinityStringChatBuilder::operator()(LocaleConstant locale) const
+ChatPacketSender* TrinityStringChatBuilder::operator()(LocaleConstant locale) const
 {
-    WorldPackets::Chat::Chat* packet = new WorldPackets::Chat::Chat();
-
     char const* text = sObjectMgr->GetTrinityString(_textId, locale);
 
     if (_args)
@@ -53,10 +136,15 @@ WorldPackets::Packet* Trinity::TrinityStringChatBuilder::operator()(LocaleConsta
         vsnprintf(strBuffer, BufferSize, text, ap);
         va_end(ap);
 
-        packet->Initialize(_msgType, LANG_UNIVERSAL, _source, _target, strBuffer, 0, "", locale);
+        return new ChatPacketSender(_msgType, LANG_UNIVERSAL, _source, _target, strBuffer, 0, locale);
     }
-    else
-        packet->Initialize(_msgType, LANG_UNIVERSAL, _source, _target, text, 0, "", locale);
 
-    return packet;
+    return new ChatPacketSender(_msgType, LANG_UNIVERSAL, _source, _target, text, 0, locale);
+}
+
+ChatPacketSender* CreatureTextTextBuilder::operator()(LocaleConstant locale) const
+{
+    return new ChatPacketSender(_msgType, _language, _talker, _target, sCreatureTextMgr->GetLocalizedChatString(_source->GetEntry(), _gender, _textGroup, _textId, locale), 0, locale,
+        _broadcastTextId, _emoteId, _soundKitId, _soundKitPlayType, _playerConditionId);
+}
 }

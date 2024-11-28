@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,11 +19,13 @@
 #define UpdateMask_h__
 
 #include "Define.h"
+#include <algorithm>
+#include <cstring> // std::memset
 
 namespace UpdateMaskHelpers
 {
-    inline constexpr uint32 GetBlockIndex(uint32 bit) { return bit / 32; }
-    inline constexpr uint32 GetBlockFlag(uint32 bit) { return 1 << (bit % 32); }
+    inline constexpr std::size_t GetBlockIndex(std::size_t bit) { return bit / 32u; }
+    inline constexpr uint32 GetBlockFlag(std::size_t bit) { return 1u << (bit % 32u); }
 }
 
 template<uint32 Bits>
@@ -33,69 +35,82 @@ public:
     static constexpr uint32 BlockCount = (Bits + 31) / 32;
     static constexpr uint32 BlocksMaskCount = (BlockCount + 31) / 32;
 
-    UpdateMask()
+    constexpr UpdateMask() : _blocksMask(), _blocks()
     {
-        std::fill(std::begin(_blocksMask), std::end(_blocksMask), 0);
-        std::fill(std::begin(_blocks), std::end(_blocks), 0);
     }
 
-    UpdateMask(std::initializer_list<uint32> init)
+    constexpr UpdateMask(std::array<uint32, BlockCount> const& init)
     {
-        InitFromBlocks(init.begin(), init.size());
+        _blocksMask.back() = 0; // only last value of blocksMask will not be written fully
+        for (uint32 block = 0; block < BlockCount; ++block)
+        {
+            if ((_blocks[block] = init[block]) != 0)
+                _blocksMask[UpdateMaskHelpers::GetBlockIndex(block)] |= UpdateMaskHelpers::GetBlockFlag(block);
+            else
+                _blocksMask[UpdateMaskHelpers::GetBlockIndex(block)] &= ~UpdateMaskHelpers::GetBlockFlag(block);
+        }
     }
 
-    uint32 GetBlocksMask(uint32 index) const
+    constexpr uint32 GetBlocksMask(uint32 index) const
     {
         return _blocksMask[index];
     }
 
-    uint32 GetBlock(uint32 index) const
+    constexpr uint32 GetBlock(uint32 index) const
     {
         return _blocks[index];
     }
 
-    bool operator[](uint32 index) const
+    constexpr bool operator[](uint32 index) const
     {
-        return (_blocks[index / 32] & (1 << (index % 32))) != 0;
+        return (_blocks[UpdateMaskHelpers::GetBlockIndex(index)] & UpdateMaskHelpers::GetBlockFlag(index)) != 0;
     }
 
-    void Reset(uint32 index)
+    constexpr bool IsAnySet() const
+    {
+        return std::ranges::any_of(_blocksMask, [](uint32 blockMask)
+        {
+            return blockMask != 0;
+        });
+    }
+
+    constexpr void Reset(uint32 index)
     {
         std::size_t blockIndex = UpdateMaskHelpers::GetBlockIndex(index);
         if (!(_blocks[blockIndex] &= ~UpdateMaskHelpers::GetBlockFlag(index)))
             _blocksMask[UpdateMaskHelpers::GetBlockIndex(blockIndex)] &= ~UpdateMaskHelpers::GetBlockFlag(blockIndex);
     }
 
-    void ResetAll()
+    constexpr void ResetAll()
     {
-        std::fill(std::begin(_blocksMask), std::end(_blocksMask), 0);
-        std::fill(std::begin(_blocks), std::end(_blocks), 0);
+        _blocksMask = { };
+        _blocks = { };
     }
 
-    void Set(uint32 index)
+    constexpr void Set(uint32 index)
     {
         std::size_t blockIndex = UpdateMaskHelpers::GetBlockIndex(index);
         _blocks[blockIndex] |= UpdateMaskHelpers::GetBlockFlag(index);
         _blocksMask[UpdateMaskHelpers::GetBlockIndex(blockIndex)] |= UpdateMaskHelpers::GetBlockFlag(blockIndex);
     }
 
-    void SetAll()
+    constexpr void SetAll()
     {
-        std::fill(std::begin(_blocksMask), std::end(_blocksMask), 0xFFFFFFFF);
-        if (BlocksMaskCount % 32)
+        std::memset(_blocksMask.data(), 0xFF, _blocksMask.size() * sizeof(typename decltype(_blocksMask)::value_type));
+        if constexpr (BlocksMaskCount % 32)
         {
             constexpr uint32 unused = 32 - (BlocksMaskCount % 32);
-            _blocksMask[BlocksMaskCount - 1] &= (0xFFFFFFFF >> unused);
+            _blocksMask.back() &= (0xFFFFFFFF >> unused);
         }
-        std::fill(std::begin(_blocks), std::end(_blocks), 0xFFFFFFFF);
-        if (BlockCount % 32)
+        std::memset(_blocks.data(), 0xFF, _blocks.size() * sizeof(typename decltype(_blocks)::value_type));
+        if constexpr (BlockCount % 32)
         {
             constexpr uint32 unused = 32 - (BlockCount % 32);
-            _blocks[BlockCount - 1] &= (0xFFFFFFFF >> unused);
+            _blocks.back() &= (0xFFFFFFFF >> unused);
         }
     }
 
-    UpdateMask& operator&=(UpdateMask const& right)
+    constexpr UpdateMask& operator&=(UpdateMask const& right)
     {
         for (uint32 i = 0; i < BlocksMaskCount; ++i)
             _blocksMask[i] &= right._blocksMask[i];
@@ -107,7 +122,7 @@ public:
         return *this;
     }
 
-    UpdateMask& operator|=(UpdateMask const& right)
+    constexpr UpdateMask& operator|=(UpdateMask const& right)
     {
         for (std::size_t i = 0; i < BlocksMaskCount; ++i)
             _blocksMask[i] |= right._blocksMask[i];
@@ -119,21 +134,8 @@ public:
     }
 
 private:
-    void InitFromBlocks(uint32 const* input, uint32 size)
-    {
-        std::fill(std::begin(_blocksMask), std::end(_blocksMask), 0);
-
-        uint32 block = 0;
-        for (; block < size; ++block)
-            if ((_blocks[block] = input[block]) != 0)
-                _blocksMask[UpdateMaskHelpers::GetBlockIndex(block)] |= UpdateMaskHelpers::GetBlockFlag(block);
-
-        for (; block < BlockCount; ++block)
-            _blocks[block] = 0;
-    }
-
-    uint32 _blocksMask[BlocksMaskCount];
-    uint32 _blocks[BlockCount];
+    std::array<uint32, BlocksMaskCount> _blocksMask;
+    std::array<uint32, BlockCount> _blocks;
 };
 
 template<uint32 Bits>

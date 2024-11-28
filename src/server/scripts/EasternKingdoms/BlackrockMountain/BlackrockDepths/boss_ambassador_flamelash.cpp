@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,6 +16,7 @@
  */
 
 #include "ScriptMgr.h"
+#include "blackrock_depths.h"
 #include "ScriptedCreature.h"
 
 enum Spells
@@ -34,24 +35,20 @@ class boss_ambassador_flamelash : public CreatureScript
     public:
         boss_ambassador_flamelash() : CreatureScript("boss_ambassador_flamelash") { }
 
-        struct boss_ambassador_flamelashAI : public ScriptedAI
+        struct boss_ambassador_flamelashAI : public BossAI
         {
-            boss_ambassador_flamelashAI(Creature* creature) : ScriptedAI(creature) { }
+            boss_ambassador_flamelashAI(Creature* creature) : BossAI(creature, BOSS_AMBASSADOR_FLAMELASH) { }
 
-            void Reset() override
+            void JustEngagedWith(Unit* who) override
             {
-                _events.Reset();
-            }
-
-            void EnterCombat(Unit* /*who*/) override
-            {
-                _events.ScheduleEvent(EVENT_FIREBLAST, 2000);
-                _events.ScheduleEvent(EVENT_SUMMON_SPIRITS, 24000);
+                _JustEngagedWith(who);
+                events.ScheduleEvent(EVENT_FIREBLAST, 2s);
+                events.ScheduleEvent(EVENT_SUMMON_SPIRITS, 24s);
             }
 
             void SummonSpirit(Unit* victim)
             {
-                if (Creature* spirit = DoSpawnCreature(9178, frand(-9, 9), frand(-9, 9), 0, 0, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 60000))
+                if (Creature* spirit = DoSpawnCreature(9178, frand(-9, 9), frand(-9, 9), 0, 0, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 60s))
                     spirit->AI()->AttackStart(victim);
             }
 
@@ -60,36 +57,31 @@ class boss_ambassador_flamelash : public CreatureScript
                 if (!UpdateVictim())
                     return;
 
-                _events.Update(diff);
+                events.Update(diff);
 
-                while (uint32 eventId = _events.ExecuteEvent())
+                while (uint32 eventId = events.ExecuteEvent())
                 {
                     switch (eventId)
                     {
                         case EVENT_FIREBLAST:
                             DoCastVictim(SPELL_FIREBLAST);
-                            _events.ScheduleEvent(EVENT_FIREBLAST, 7000);
+                            events.ScheduleEvent(EVENT_FIREBLAST, 7s);
                             break;
                         case EVENT_SUMMON_SPIRITS:
                             for (uint32 i = 0; i < 4; ++i)
                                 SummonSpirit(me->GetVictim());
-                            _events.ScheduleEvent(EVENT_SUMMON_SPIRITS, 30000);
+                            events.ScheduleEvent(EVENT_SUMMON_SPIRITS, 30s);
                             break;
                         default:
                             break;
                     }
                 }
-
-                DoMeleeAttackIfReady();
             }
-
-        private:
-            EventMap _events;
         };
 
         CreatureAI* GetAI(Creature* creature) const override
         {
-            return new boss_ambassador_flamelashAI(creature);
+            return GetBlackrockDepthsAI<boss_ambassador_flamelashAI>(creature);
         }
 };
 

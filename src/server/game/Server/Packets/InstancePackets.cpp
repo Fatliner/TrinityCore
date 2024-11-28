@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,6 +16,7 @@
  */
 
 #include "InstancePackets.h"
+#include "PacketUtilities.h"
 
 WorldPacket const* WorldPackets::Instance::UpdateLastInstance::Write()
 {
@@ -107,11 +108,13 @@ WorldPacket const* WorldPackets::Instance::PendingRaidLock::Write()
 
 WorldPacket const* WorldPackets::Instance::RaidInstanceMessage::Write()
 {
-    _worldPacket << uint8(Type);
+    _worldPacket << int32(Type);
     _worldPacket << uint32(MapID);
     _worldPacket << uint32(DifficultyID);
-    _worldPacket.WriteBit(Locked);
-    _worldPacket.WriteBit(Extended);
+    _worldPacket << int32(TimeLeft);
+    _worldPacket << BitsSize<8>(WarningMessage);
+    _worldPacket << Bits<1>(Locked);
+    _worldPacket << Bits<1>(Extended);
     _worldPacket.FlushBits();
 
     return &_worldPacket;
@@ -140,6 +143,35 @@ WorldPacket const* WorldPackets::Instance::InstanceEncounterChangePriority::Writ
     return &_worldPacket;
 }
 
+WorldPacket const* WorldPackets::Instance::InstanceEncounterTimerStart::Write()
+{
+    _worldPacket << int32(TimeRemaining);
+
+    return &_worldPacket;
+}
+
+WorldPacket const* WorldPackets::Instance::InstanceEncounterObjectiveStart::Write()
+{
+    _worldPacket << int32(ObjectiveID);
+
+    return &_worldPacket;
+}
+
+WorldPacket const* WorldPackets::Instance::InstanceEncounterObjectiveUpdate::Write()
+{
+    _worldPacket << int32(ObjectiveID);
+    _worldPacket << int32(ProgressAmount);
+
+    return &_worldPacket;
+}
+
+WorldPacket const* WorldPackets::Instance::InstanceEncounterObjectiveComplete::Write()
+{
+    _worldPacket << int32(ObjectiveID);
+
+    return &_worldPacket;
+}
+
 WorldPacket const* WorldPackets::Instance::InstanceEncounterStart::Write()
 {
     _worldPacket << uint32(InCombatResCount);
@@ -160,7 +192,7 @@ WorldPacket const* WorldPackets::Instance::InstanceEncounterGainCombatResurrecti
     return &_worldPacket;
 }
 
-WorldPacket const* WorldPackets::Instance::BossKillCredit::Write()
+WorldPacket const* WorldPackets::Instance::BossKill::Write()
 {
     _worldPacket << uint32(DungeonEncounterID);
 

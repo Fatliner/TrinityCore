@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,10 +20,12 @@
 void WorldPackets::LFG::DFJoin::Read()
 {
     QueueAsGroup = _worldPacket.ReadBit();
-    Unknown = _worldPacket.ReadBit();
-    _worldPacket >> PartyIndex;
+    bool hasPartyIndex = _worldPacket.ReadBit();
+    Mercenary = _worldPacket.ReadBit();
     _worldPacket >> Roles;
     Slots.resize(_worldPacket.read<uint32>());
+    if (hasPartyIndex)
+        _worldPacket >> PartyIndex.emplace();
     for (uint32& slot : Slots)
         _worldPacket >> slot;
 }
@@ -43,8 +45,10 @@ void WorldPackets::LFG::DFProposalResponse::Read()
 
 void WorldPackets::LFG::DFSetRoles::Read()
 {
+    bool hasPartyIndex = _worldPacket.ReadBit();
     _worldPacket >> RolesDesired;
-    _worldPacket >> PartyIndex;
+    if (hasPartyIndex)
+        _worldPacket >> PartyIndex.emplace();
 }
 
 void WorldPackets::LFG::DFBootPlayerVote::Read()
@@ -60,7 +64,8 @@ void WorldPackets::LFG::DFTeleport::Read()
 void WorldPackets::LFG::DFGetSystemInfo::Read()
 {
     Player = _worldPacket.ReadBit();
-    _worldPacket >> PartyIndex;
+    if (_worldPacket.ReadBit())
+        _worldPacket >> PartyIndex.emplace();
 }
 
 ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::LFGBlackListSlot const& lfgBlackListSlot)
@@ -69,13 +74,14 @@ ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::LFGBlackListSlot con
     data << uint32(lfgBlackListSlot.Reason);
     data << int32(lfgBlackListSlot.SubReason1);
     data << int32(lfgBlackListSlot.SubReason2);
+    data << uint32(lfgBlackListSlot.SoftLock);
 
     return data;
 }
 
 ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::LFGBlackList const& blackList)
 {
-    data.WriteBit(blackList.PlayerGuid.is_initialized());
+    data.WriteBit(blackList.PlayerGuid.has_value());
     data << uint32(blackList.Slot.size());
     if (blackList.PlayerGuid)
         data << *blackList.PlayerGuid;
@@ -104,7 +110,7 @@ ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::LfgPlayerQuestReward
 
 ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::LfgPlayerQuestReward const& playerQuestReward)
 {
-    data << uint32(playerQuestReward.Mask);
+    data << uint8(playerQuestReward.Mask);
     data << int32(playerQuestReward.RewardMoney);
     data << int32(playerQuestReward.RewardXP);
     data << uint32(playerQuestReward.Item.size());
@@ -120,20 +126,20 @@ ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::LfgPlayerQuestReward
     for (WorldPackets::LFG::LfgPlayerQuestRewardCurrency const& bonusCurrency : playerQuestReward.BonusCurrency)
         data << bonusCurrency;
 
-    data.WriteBit(playerQuestReward.RewardSpellID.is_initialized());
-    data.WriteBit(playerQuestReward.Unused1.is_initialized());
-    data.WriteBit(playerQuestReward.Unused2.is_initialized());
-    data.WriteBit(playerQuestReward.Honor.is_initialized());
+    data.WriteBit(playerQuestReward.RewardSpellID.has_value());
+    data.WriteBit(playerQuestReward.ArtifactXPCategory.has_value());
+    data.WriteBit(playerQuestReward.ArtifactXP.has_value());
+    data.WriteBit(playerQuestReward.Honor.has_value());
     data.FlushBits();
 
     if (playerQuestReward.RewardSpellID)
         data << int32(*playerQuestReward.RewardSpellID);
 
-    if (playerQuestReward.Unused1)
-        data << int32(*playerQuestReward.Unused1);
+    if (playerQuestReward.ArtifactXPCategory)
+        data << int32(*playerQuestReward.ArtifactXPCategory);
 
-    if (playerQuestReward.Unused2)
-        data << uint64(*playerQuestReward.Unused2);
+    if (playerQuestReward.ArtifactXP)
+        data << uint64(*playerQuestReward.ArtifactXP);
 
     if (playerQuestReward.Honor)
         data << int32(*playerQuestReward.Honor);
@@ -195,8 +201,9 @@ WorldPacket const* WorldPackets::LFG::LFGUpdateStatus::Write()
     _worldPacket << uint8(SubType);
     _worldPacket << uint8(Reason);
     _worldPacket << uint32(Slots.size());
-    _worldPacket << uint32(RequestedRoles);
+    _worldPacket << uint8(RequestedRoles);
     _worldPacket << uint32(SuspendedPlayers.size());
+    _worldPacket << uint32(QueueMapID);
 
     for (uint32 slot : Slots)
         _worldPacket << uint32(slot);
@@ -209,7 +216,7 @@ WorldPacket const* WorldPackets::LFG::LFGUpdateStatus::Write()
     _worldPacket.WriteBit(Joined);
     _worldPacket.WriteBit(LfgJoined);
     _worldPacket.WriteBit(Queued);
-    _worldPacket.WriteBit(Unused);
+    _worldPacket.WriteBit(Brawl);
     _worldPacket.FlushBits();
 
     return &_worldPacket;
@@ -218,7 +225,7 @@ WorldPacket const* WorldPackets::LFG::LFGUpdateStatus::Write()
 WorldPacket const* WorldPackets::LFG::RoleChosen::Write()
 {
     _worldPacket << Player;
-    _worldPacket << uint32(RoleMask);
+    _worldPacket << uint8(RoleMask);
     _worldPacket.WriteBit(Accepted);
     _worldPacket.FlushBits();
 
@@ -228,7 +235,7 @@ WorldPacket const* WorldPackets::LFG::RoleChosen::Write()
 ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::LFGRoleCheckUpdateMember const& lfgRoleCheckUpdateMember)
 {
     data << lfgRoleCheckUpdateMember.Guid;
-    data << uint32(lfgRoleCheckUpdateMember.RolesDesired);
+    data << uint8(lfgRoleCheckUpdateMember.RolesDesired);
     data << uint8(lfgRoleCheckUpdateMember.Level);
     data.WriteBit(lfgRoleCheckUpdateMember.RoleCheckComplete);
     data.FlushBits();
@@ -261,27 +268,6 @@ WorldPacket const* WorldPackets::LFG::LFGRoleCheckUpdate::Write()
     return &_worldPacket;
 }
 
-ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::LFGJoinBlackListSlot const& lfgBlackListSlot)
-{
-    data << int32(lfgBlackListSlot.Slot);
-    data << int32(lfgBlackListSlot.Reason);
-    data << int32(lfgBlackListSlot.SubReason1);
-    data << int32(lfgBlackListSlot.SubReason2);
-
-    return data;
-}
-
-ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::LFGJoinBlackList const& blackList)
-{
-    data << blackList.Guid;
-    data << uint32(blackList.Slots.size());
-
-    for (WorldPackets::LFG::LFGJoinBlackListSlot const& slot : blackList.Slots)
-        data << slot;
-
-    return data;
-}
-
 WorldPacket const* WorldPackets::LFG::LFGJoinResult::Write()
 {
     _worldPacket << Ticket;
@@ -290,7 +276,7 @@ WorldPacket const* WorldPackets::LFG::LFGJoinResult::Write()
     _worldPacket << uint32(BlackList.size());
     _worldPacket << uint32(BlackListNames.size());
 
-    for (LFGJoinBlackList const& blackList : BlackList)
+    for (LFGBlackList const& blackList : BlackList)
         _worldPacket << blackList;
 
     for (std::string const* str : BlackListNames)
@@ -322,8 +308,8 @@ WorldPacket const* WorldPackets::LFG::LFGQueueStatus::Write()
 
 ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::LFGPlayerRewards const& lfgPlayerRewards)
 {
-    data.WriteBit(lfgPlayerRewards.RewardItem.is_initialized());
-    data.WriteBit(lfgPlayerRewards.RewardCurrency.is_initialized());
+    data.WriteBit(lfgPlayerRewards.RewardItem.has_value());
+    data.WriteBit(lfgPlayerRewards.RewardCurrency.has_value());
     if (lfgPlayerRewards.RewardItem)
         data << *lfgPlayerRewards.RewardItem;
 
@@ -375,7 +361,7 @@ WorldPacket const* WorldPackets::LFG::LfgBootPlayer::Write()
 
 ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::LFG::LFGProposalUpdatePlayer const& lfgProposalUpdatePlayer)
 {
-    data << uint32(lfgProposalUpdatePlayer.Roles);
+    data << uint8(lfgProposalUpdatePlayer.Roles);
     data.WriteBit(lfgProposalUpdatePlayer.Me);
     data.WriteBit(lfgProposalUpdatePlayer.SameParty);
     data.WriteBit(lfgProposalUpdatePlayer.MyParty);
@@ -396,10 +382,10 @@ WorldPacket const* WorldPackets::LFG::LFGProposalUpdate::Write()
     _worldPacket << uint32(CompletedMask);
     _worldPacket << uint32(EncounterMask);
     _worldPacket << uint32(Players.size());
-    _worldPacket << uint8(Unused);
+    _worldPacket << uint8(PromisedShortageRolePriority);
     _worldPacket.WriteBit(ValidCompletedMask);
     _worldPacket.WriteBit(ProposalSilent);
-    _worldPacket.WriteBit(IsRequeue);
+    _worldPacket.WriteBit(FailedByMyParty);
     _worldPacket.FlushBits();
 
     for (LFGProposalUpdatePlayer const& player : Players)

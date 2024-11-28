@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,10 +21,12 @@
 #include "Packet.h"
 #include "Define.h"
 #include "Optional.h"
+#include "PacketUtilities.h"
 #include <array>
 #include <unordered_map>
 
 struct CharacterTemplate;
+struct RaceClassAvailability;
 
 namespace WorldPackets
 {
@@ -100,7 +102,9 @@ namespace WorldPackets
         {
             uint32 WaitCount = 0; ///< position of the account in the login queue
             uint32 WaitTime = 0; ///< Wait time in login queue in minutes, if sent queued and this value is 0 client displays "unknown time"
+            int32 AllowedFactionGroupForCharacterCreate = 0;
             bool HasFCM = false; ///< true if the account has a forced character migration pending. @todo implement
+            bool CanCreateOnlyIfExisting = false; ///< Can create characters on realm only if player has other existing characters there
         };
 
         struct VirtualRealmNameInfo
@@ -117,6 +121,7 @@ namespace WorldPackets
 
         struct VirtualRealmInfo
         {
+            VirtualRealmInfo() : RealmAddress(0) { }
             VirtualRealmInfo(uint32 realmAddress, bool isHomeRealm, bool isInternalRealm, std::string const& realmNameActual, std::string const& realmNameNormalized) :
                 RealmAddress(realmAddress), RealmNameInfo(isHomeRealm, isInternalRealm, realmNameActual, realmNameNormalized) { }
 
@@ -129,38 +134,49 @@ namespace WorldPackets
         public:
             struct AuthSuccessInfo
             {
-                struct BillingInfo
+                struct GameTime
                 {
-                    uint32 BillingPlan = 0;
-                    uint32 TimeRemain = 0;
-                    uint32 Unknown735 = 0;
-                    bool InGameRoom = false;
+                    uint32 BillingType = 0;
+                    uint32 MinutesRemaining = 0;
+                    uint32 RealBillingType = 0;
+                    bool IsInIGR = false;
+                    bool IsPaidForByIGR = false;
+                    bool IsCAISEnabled = false;
                 };
 
-                uint8 AccountExpansionLevel = 0; ///< the current expansion of this account, the possible values are in @ref Expansions
+                struct NewBuild
+                {
+                    std::array<uint8, 16> NewBuildKey = { };
+                    std::array<uint8, 16> SomeKey = { };
+                };
+
+                AuthSuccessInfo() { } // work around clang bug https://gcc.gnu.org/bugzilla/show_bug.cgi?id=101227
+
                 uint8 ActiveExpansionLevel = 0; ///< the current server expansion, the possible values are in @ref Expansions
+                uint8 AccountExpansionLevel = 0; ///< the current expansion of this account, the possible values are in @ref Expansions
                 uint32 TimeRested = 0; ///< affects the return value of the GetBillingTimeRested() client API call, it is the number of seconds you have left until the experience points and loot you receive from creatures and quests is reduced. It is only used in the Asia region in retail, it's not implemented in TC and will probably never be.
 
                 uint32 VirtualRealmAddress = 0; ///< a special identifier made from the Index, BattleGroup and Region.
                 uint32 TimeSecondsUntilPCKick = 0; ///< @todo research
                 uint32 CurrencyID = 0; ///< this is probably used for the ingame shop. @todo implement
-                int32 Time = 0;
+                Timestamp<> Time;
 
-                BillingInfo Billing;
+                GameTime GameTimeInfo;
 
                 std::vector<VirtualRealmInfo> VirtualRealms;     ///< list of realms connected to this one (inclusive) @todo implement
                 std::vector<CharacterTemplate const*> Templates; ///< list of pre-made character templates.
 
-                std::unordered_map<uint8, uint8> const* AvailableClasses = nullptr; ///< the minimum AccountExpansion required to select the classes
+                std::vector<RaceClassAvailability> const* AvailableClasses = nullptr; ///< the minimum AccountExpansion required to select race/class combinations
 
                 bool IsExpansionTrial = false;
                 bool ForceCharacterTemplate = false; ///< forces the client to always use a character template when creating a new character. @see Templates. @todo implement
                 Optional<uint16> NumPlayersHorde; ///< number of horde players in this realm. @todo implement
                 Optional<uint16> NumPlayersAlliance; ///< number of alliance players in this realm. @todo implement
-                Optional<int32> ExpansionTrialExpiration; ///< expansion trial expiration unix timestamp
+                Optional<Timestamp<>> ExpansionTrialExpiration; ///< expansion trial expiration unix timestamp
+                Optional<NewBuild> NewBuildKeys;
             };
 
-            AuthResponse();
+            AuthResponse() : ServerPacket(SMSG_AUTH_RESPONSE, 132) { }
 
             WorldPacket const* Write() override;
 
@@ -198,13 +214,15 @@ namespace WorldPackets
             WorldAttempt5   = 89
         };
 
-        class ConnectTo final : public ServerPacket
+        class TC_GAME_API ConnectTo final : public ServerPacket
         {
         public:
             static bool InitializeEncryption();
+            static void ShutdownEncryption();
 
             enum AddressType : uint8
             {
+                None = 0,
                 IPv4 = 1,
                 IPv6 = 2,
                 NamedSocket = 3 // not supported by windows client
@@ -212,20 +230,20 @@ namespace WorldPackets
 
             struct SocketAddress
             {
-                AddressType Type;
+                AddressType Type = None;
                 union
                 {
                     std::array<uint8, 4> V4;
                     std::array<uint8, 16> V6;
                     std::array<char, 128> Name;
-                } Address;
+                } Address = { };
             };
 
             struct ConnectPayload
             {
                 SocketAddress Where;
-                uint16 Port;
-                std::array<uint8, 256> Signature;
+                uint16 Port = 0;
+                std::array<uint8, 256> Signature = { };
             };
 
             ConnectTo();
@@ -278,22 +296,26 @@ namespace WorldPackets
             void Read() override;
         };
 
-        class EnableEncryption final : public ServerPacket
+        class TC_GAME_API EnterEncryptedMode final : public ServerPacket
         {
         public:
-            EnableEncryption(uint8 const* encryptionKey, bool enabled) : ServerPacket(SMSG_ENABLE_ENCRYPTION, 256 + 1),
+            static bool InitializeEncryption();
+            static void ShutdownEncryption();
+
+            EnterEncryptedMode(std::array<uint8, 16> const& encryptionKey, bool enabled) : ServerPacket(SMSG_ENTER_ENCRYPTED_MODE, 256 + 1),
                 EncryptionKey(encryptionKey), Enabled(enabled)
             {
             }
 
             WorldPacket const* Write() override;
 
-            uint8 const* EncryptionKey;
+            std::array<uint8, 16> const& EncryptionKey;
             bool Enabled = false;
         };
     }
 }
 
+ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Auth::VirtualRealmInfo const& realmInfo);
 ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Auth::VirtualRealmNameInfo const& realmInfo);
 
 #endif // AuthenticationPacketsWorld_h__

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,7 +19,9 @@
 #define GarrisonPackets_h__
 
 #include "Packet.h"
+#include "ItemPacketsCommon.h"
 #include "ObjectGuid.h"
+#include "Optional.h"
 #include "Position.h"
 #include "PacketUtilities.h"
 #include <list>
@@ -66,16 +68,16 @@ namespace WorldPackets
         {
             uint32 GarrPlotInstanceID = 0;
             TaggedPosition<Position::XYZO> PlotPos;
-            uint32 PlotType = 0;
+            uint8 PlotType = 0;
         };
 
         struct GarrisonBuildingInfo
         {
             uint32 GarrPlotInstanceID = 0;
             uint32 GarrBuildingID = 0;
-            time_t TimeBuilt = time_t(0);
+            Timestamp<> TimeBuilt;
             uint32 CurrentGarSpecID = 0;
-            time_t TimeSpecCooldown = time_t(2288912640);   // 06/07/1906 18:35:44 - another in the series of magic blizz dates
+            Timestamp<> TimeSpecCooldown = time_t(2288912640);   // 06/07/1906 18:35:44 - another in the series of magic blizz dates
             bool Active = false;
         };
 
@@ -94,69 +96,132 @@ namespace WorldPackets
             std::list<GarrAbilityEntry const*> AbilityID;
             uint32 ZoneSupportSpellID = 0;
             uint32 FollowerStatus = 0;
+            int32 Health = 0;
+            Timestamp<> HealingTimestamp;
+            int8 BoardIndex = 0;
             std::string CustomName;
         };
 
-        struct GarrisonMission
+        struct GarrisonEncounter
         {
-            uint64 DbID = 0;
-            uint32 MissionRecID = 0;
-            time_t OfferTime = time_t(0);
-            uint32 OfferDuration = 0;
-            time_t StartTime = time_t(2288912640);
-            uint32 TravelDuration = 0;
-            uint32 MissionDuration = 0;
-            uint32 MissionState = 0;
-            uint32 Unknown1 = 0;
-            uint32 Unknown2 = 0;
+            int32 GarrEncounterID = 0;
+            std::vector<int32> Mechanics;
+            int32 GarrAutoCombatantID = 0;
+            int32 Health = 0;
+            int32 MaxHealth = 0;
+            int32 Attack = 0;
+            int8 BoardIndex = 0;
         };
 
         struct GarrisonMissionReward
         {
             int32 ItemID = 0;
-            uint32 Quantity = 0;
+            uint32 ItemQuantity = 0;
             int32 CurrencyID = 0;
             uint32 CurrencyQuantity = 0;
             uint32 FollowerXP = 0;
-            uint32 BonusAbilityID = 0;
-            int32 Unknown = 0;
+            uint32 GarrMssnBonusAbilityID = 0;
+            int32 ItemFileDataID = 0;
+            Optional<Item::ItemInstance> ItemInstance;
+        };
+
+        struct GarrisonMission
+        {
+            uint64 DbID = 0;
+            int32 MissionRecID = 0;
+            Timestamp<> OfferTime;
+            Duration<Seconds> OfferDuration;
+            Timestamp<> StartTime = time_t(2288912640);
+            Duration<Seconds> TravelDuration;
+            Duration<Seconds> MissionDuration;
+            int32 MissionState = 0;
+            int32 SuccessChance = 0;
+            uint32 Flags = 0;
+            float MissionScalar = 1.0f;
+            int32 ContentTuningID = 0;
+            std::vector<GarrisonEncounter> Encounters;
+            std::vector<GarrisonMissionReward> Rewards;
+            std::vector<GarrisonMissionReward> OvermaxRewards;
         };
 
         struct GarrisonMissionBonusAbility
         {
             uint32 GarrMssnBonusAbilityID = 0;
-            time_t StartTime = time_t(0);
+            Timestamp<> StartTime;
+        };
+
+        struct GarrisonTalentSocketData
+        {
+            int32 SoulbindConduitID = 0;
+            int32 SoulbindConduitRank = 0;
         };
 
         struct GarrisonTalent
         {
             int32 GarrTalentID = 0;
-            time_t ResearchStartTime = time_t(0);
+            int32 Rank = 0;
+            Timestamp<> ResearchStartTime;
             int32 Flags = 0;
+            Optional<GarrisonTalentSocketData> Socket;
+        };
+
+        struct GarrisonCollectionEntry
+        {
+            int32 EntryID = 0;
+            int32 Rank = 0;
+        };
+
+        struct GarrisonCollection
+        {
+            int32 Type = 0;
+            std::vector<GarrisonCollectionEntry> Entries;
+        };
+
+        struct GarrisonEventEntry
+        {
+            int32 EntryID = 0;
+            int64 EventValue = 0;
+        };
+
+        struct GarrisonEventList
+        {
+            int32 Type = 0;
+            std::vector<GarrisonEventEntry> Events;
+        };
+
+        struct GarrisonSpecGroup
+        {
+            int32 ChrSpecializationID = 0;
+            int32 SoulbindID = 0;
         };
 
         struct GarrisonInfo
         {
-            int32 GarrTypeID = 0;
+            uint8 GarrTypeID = 0;
             uint32 GarrSiteID = 0;
             uint32 GarrSiteLevelID = 0;
             uint32 NumFollowerActivationsRemaining = 0;
             uint32 NumMissionsStartedToday = 0;   // might mean something else, but sending 0 here enables follower abilities "Increase success chance of the first mission of the day by %."
+            int32 MinAutoTroopLevel = 0;
             std::vector<GarrisonPlotInfo*> Plots;
             std::vector<GarrisonBuildingInfo const*> Buildings;
             std::vector<GarrisonFollower const*> Followers;
+            std::vector<GarrisonFollower const*> AutoTroops;
             std::vector<GarrisonMission const*> Missions;
             std::vector<std::vector<GarrisonMissionReward>> MissionRewards;
             std::vector<std::vector<GarrisonMissionReward>> MissionOvermaxRewards;
             std::vector<GarrisonMissionBonusAbility const*> MissionAreaBonuses;
             std::vector<GarrisonTalent> Talents;
+            std::vector<GarrisonCollection> Collections;
+            std::vector<GarrisonEventList> EventLists;
+            std::vector<GarrisonSpecGroup> SpecGroups;
             std::vector<bool> CanStartMission;
             std::vector<int32> ArchivedMissions;
         };
 
         struct FollowerSoftCapInfo
         {
-            int32 GarrFollowerTypeID;
+            uint8 GarrFollowerTypeID;
             uint32 Count;
         };
 
@@ -216,7 +281,7 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            int32 GarrTypeID = 0;
+            uint8 GarrTypeID = 0;
             uint32 Result = 0;
             GarrisonBuildingInfo BuildingInfo;
             bool PlayActivationCinematic = false;
@@ -240,7 +305,7 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            int32 GarrTypeID = 0;
+            uint8 GarrTypeID = 0;
             uint32 Result = 0;
             uint32 GarrPlotInstanceID = 0;
             uint32 GarrBuildingID = 0;
@@ -253,7 +318,7 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            int32 GarrTypeID = 0;
+            uint8 GarrTypeID = 0;
             uint32 BuildingID = 0;
             uint32 Result = 0;
         };
@@ -265,9 +330,9 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            int32 GarrTypeID = 0;
-            uint32 BuildingID = 0;
+            uint8 GarrTypeID = 0;
             uint32 Result = 0;
+            uint32 BuildingID = 0;
         };
 
         class GarrisonRequestBlueprintAndSpecializationData final : public ClientPacket
@@ -285,36 +350,36 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            int32 GarrTypeID = 0;
-            std::unordered_set<uint32> const* SpecializationsKnown = nullptr;
+            uint8 GarrTypeID = 0;
             std::unordered_set<uint32> const* BlueprintsKnown = nullptr;
+            std::unordered_set<uint32> const* SpecializationsKnown = nullptr;
         };
 
-        class GarrisonGetBuildingLandmarks final : public ClientPacket
+        class GarrisonGetMapData final : public ClientPacket
         {
         public:
-            GarrisonGetBuildingLandmarks(WorldPacket&& packet) : ClientPacket(CMSG_GARRISON_GET_BUILDING_LANDMARKS, std::move(packet)) { }
+            GarrisonGetMapData(WorldPacket&& packet) : ClientPacket(CMSG_GARRISON_GET_MAP_DATA, std::move(packet)) { }
 
             void Read() override { }
         };
 
-        struct GarrisonBuildingLandmark
+        struct GarrisonBuildingMapData
         {
-            GarrisonBuildingLandmark() : GarrBuildingPlotInstID(0), Pos() { }
-            GarrisonBuildingLandmark(uint32 buildingPlotInstId, Position const& pos) : GarrBuildingPlotInstID(buildingPlotInstId), Pos(pos) { }
+            GarrisonBuildingMapData() : GarrBuildingPlotInstID(0), Pos() { }
+            GarrisonBuildingMapData(uint32 buildingPlotInstId, Position const& pos) : GarrBuildingPlotInstID(buildingPlotInstId), Pos(pos) { }
 
             uint32 GarrBuildingPlotInstID;
             TaggedPosition<Position::XYZ> Pos;
         };
 
-        class GarrisonBuildingLandmarks final : public ServerPacket
+        class GarrisonMapDataResponse final : public ServerPacket
         {
         public:
-            GarrisonBuildingLandmarks() : ServerPacket(SMSG_GARRISON_BUILDING_LANDMARKS) { }
+            GarrisonMapDataResponse() : ServerPacket(SMSG_GARRISON_MAP_DATA_RESPONSE) { }
 
             WorldPacket const* Write() override;
 
-            std::vector<GarrisonBuildingLandmark> Landmarks;
+            std::vector<GarrisonBuildingMapData> Buildings;
         };
 
         class GarrisonPlotPlaced final : public ServerPacket
@@ -324,7 +389,7 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            int32 GarrTypeID = 0;
+            uint8 GarrTypeID = 0;
             GarrisonPlotInfo* PlotInfo = nullptr;
         };
 
@@ -345,7 +410,7 @@ namespace WorldPackets
 
             WorldPacket const* Write() override;
 
-            int32 GarrTypeID = 0;
+            uint8 GarrTypeID = 0;
             GarrisonFollower Follower;
             uint32 Result = 0;
         };
@@ -353,13 +418,13 @@ namespace WorldPackets
         class GarrisonRemoveFollowerResult final : public ServerPacket
         {
         public:
-            GarrisonRemoveFollowerResult() : ServerPacket(SMSG_GARRISON_REMOVE_FOLLOWER_RESULT, 8 + 4 + 4 + 4) { }
+            GarrisonRemoveFollowerResult() : ServerPacket(SMSG_GARRISON_REMOVE_FOLLOWER_RESULT, 1 + 4 + 8 + 4) { }
 
             WorldPacket const* Write() override;
 
-            uint64 FollowerDBID = 0;
-            int32 GarrTypeID = 0;
+            uint8 GarrTypeID = 0;
             uint32 Result = 0;
+            uint64 FollowerDBID = 0;
             uint32 Destroyed = 0;
         };
 

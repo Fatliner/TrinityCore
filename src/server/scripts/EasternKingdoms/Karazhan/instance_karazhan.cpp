@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -45,6 +44,21 @@ EndScriptData */
 11 - Nightbane
 */
 
+DungeonEncounterData const encounters[] =
+{
+    { DATA_ATTUMEN, {{ 652 }} },
+    { DATA_MOROES, {{ 653 }} },
+    { DATA_MAIDEN_OF_VIRTUE, {{ 654 }} },
+    { DATA_OPERA_PERFORMANCE, {{ 655 }} },
+    { DATA_CURATOR, {{ 656 }} },
+    { DATA_ARAN, {{ 658 }} },
+    { DATA_TERESTIAN, {{ 657 }} },
+    { DATA_NETHERSPITE, {{ 659 }} },
+    { DATA_CHESS, {{ 660 }} },
+    { DATA_MALCHEZZAR, {{ 661 }} },
+    { DATA_NIGHTBANE, {{ 662 }} }
+};
+
 const Position OptionalSpawn[] =
 {
     { -10960.981445f, -1940.138428f, 46.178097f, 4.12f  }, // Hyakiss the Lurker
@@ -68,6 +82,7 @@ public:
         {
             SetHeaders(DataHeader);
             SetBossNumber(EncounterCount);
+            LoadDungeonEncounterData(encounters);
 
             // 1 - OZ, 2 - HOOD, 3 - RAJ, this never gets altered.
             OperaEvent = urand(EVENT_OZ, EVENT_RAJ);
@@ -132,6 +147,11 @@ public:
                         }
                     }
                     break;
+                case NPC_HYAKISS_THE_LURKER:
+                case NPC_SHADIKITH_THE_GLIDER:
+                case NPC_ROKAD_THE_RAVAGER:
+                    SetBossState(DATA_OPTIONAL_BOSS, DONE);
+                    break;
                 default:
                     break;
             }
@@ -164,12 +184,11 @@ public:
                         HandleGameObject(StageDoorRightGUID, true);
                         if (GameObject* sideEntrance = instance->GetGameObject(SideEntranceDoor))
                             sideEntrance->RemoveFlag(GO_FLAG_LOCKED);
-                        UpdateEncounterStateForKilledCreature(16812, NULL);
                     }
                     break;
                 case DATA_CHESS:
                     if (state == DONE)
-                        DoRespawnGameObject(DustCoveredChest, DAY);
+                        DoRespawnGameObject(DustCoveredChest, 24h);
                     break;
                 default:
                     break;
@@ -225,7 +244,7 @@ public:
                 case GO_SIDE_ENTRANCE_DOOR:
                     SideEntranceDoor = go->GetGUID();
                     if (GetBossState(DATA_OPERA_PERFORMANCE) == DONE)
-                        go->AddFlag(GO_FLAG_LOCKED);
+                        go->SetFlag(GO_FLAG_LOCKED);
                     else
                         go->RemoveFlag(GO_FLAG_LOCKED);
                     break;

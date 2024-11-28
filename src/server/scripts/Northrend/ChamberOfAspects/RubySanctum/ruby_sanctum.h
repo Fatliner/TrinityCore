@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -129,10 +129,12 @@ enum RSInstanceSpell
     SPELL_BERSERK                       = 26662
 };
 
-template<typename AI, typename T>
+template <class AI, class T>
 inline AI* GetRubySanctumAI(T* obj)
 {
     return GetInstanceAI<AI>(obj, RSScriptName);
 }
+
+#define RegisterRubySanctumCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetRubySanctumAI)
 
 #endif // RUBY_SANCTUM_H_

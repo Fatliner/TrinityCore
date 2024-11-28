@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2010 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,41 +18,17 @@
 #ifndef _BIH_H
 #define _BIH_H
 
-#include <G3D/Vector3.h>
-#include <G3D/Ray.h>
-#include <G3D/AABox.h>
-
 #include "Define.h"
-
-#include <stdexcept>
-#include <vector>
+#include "advstd.h"
+#include <G3D/AABox.h>
+#include <G3D/Ray.h>
+#include <G3D/Vector3.h>
 #include <algorithm>
 #include <limits>
-#include <cmath>
+#include <stdexcept>
+#include <vector>
 
 #define MAX_STACK_SIZE 64
-
-static inline uint32 floatToRawIntBits(float f)
-{
-    union
-    {
-        uint32 ival;
-        float fval;
-    } temp;
-    temp.fval=f;
-    return temp.ival;
-}
-
-static inline float intBitsToFloat(uint32 i)
-{
-    union
-    {
-        uint32 ival;
-        float fval;
-    } temp;
-    temp.ival=i;
-    return temp.fval;
-}
 
 struct AABound
 {
@@ -74,14 +49,15 @@ class TC_COMMON_API BIH
         {
             tree.clear();
             objects.clear();
+            bounds = G3D::AABox::empty();
             // create space for the first node
             tree.push_back(3u << 30u); // dummy leaf
             tree.insert(tree.end(), 2, 0);
         }
     public:
         BIH() { init_empty(); }
-        template< class BoundsFunc, class PrimArray >
-        void build(const PrimArray &primitives, BoundsFunc &getBounds, uint32 leafSize = 3, bool printStats=false)
+        template <class BoundsFunc, class PrimArray>
+        void build(PrimArray const& primitives, BoundsFunc& getBounds, uint32 leafSize = 3, bool printStats = false)
         {
             if (primitives.size() == 0)
             {
@@ -116,18 +92,18 @@ class TC_COMMON_API BIH
             delete[] dat.indices;
         }
         uint32 primCount() const { return uint32(objects.size()); }
+        G3D::AABox const& bound() const { return bounds; }
 
         template<typename RayCallback>
-        void intersectRay(const G3D::Ray &r, RayCallback& intersectCallback, float &maxDist, bool stopAtFirst=false) const
+        void intersectRay(const G3D::Ray &r, RayCallback& intersectCallback, float &maxDist, bool stopAtFirst = false) const
         {
             float intervalMin = -1.f;
             float intervalMax = -1.f;
-            G3D::Vector3 org = r.origin();
-            G3D::Vector3 dir = r.direction();
-            G3D::Vector3 invDir;
+            G3D::Vector3 const& org = r.origin();
+            G3D::Vector3 const& dir = r.direction();
+            G3D::Vector3 const& invDir = r.invDirection();
             for (int i=0; i<3; ++i)
             {
-                invDir[i] = 1.f / dir[i];
                 if (G3D::fuzzyNe(dir[i], 0.0f))
                 {
                     float t1 = (bounds.low()[i]  - org[i]) * invDir[i];
@@ -158,7 +134,7 @@ class TC_COMMON_API BIH
 
             for (int i=0; i<3; ++i)
             {
-                offsetFront[i] = floatToRawIntBits(dir[i]) >> 31;
+                offsetFront[i] = advstd::bit_cast<uint32>(dir[i]) >> 31;
                 offsetBack[i] = offsetFront[i] ^ 1;
                 offsetFront3[i] = offsetFront[i] * 3;
                 offsetBack3[i] = offsetBack[i] * 3;
@@ -184,8 +160,8 @@ class TC_COMMON_API BIH
                         if (axis < 3)
                         {
                             // "normal" interior node
-                            float tf = (intBitsToFloat(tree[node + offsetFront[axis]]) - org[axis]) * invDir[axis];
-                            float tb = (intBitsToFloat(tree[node + offsetBack[axis]]) - org[axis]) * invDir[axis];
+                            float tf = (advstd::bit_cast<float>(tree[node + offsetFront[axis]]) - org[axis]) * invDir[axis];
+                            float tb = (advstd::bit_cast<float>(tree[node + offsetBack[axis]]) - org[axis]) * invDir[axis];
                             // ray passes between clip zones
                             if (tf < intervalMin && tb > intervalMax)
                                 break;
@@ -229,8 +205,8 @@ class TC_COMMON_API BIH
                     {
                         if (axis>2)
                             return; // should not happen
-                        float tf = (intBitsToFloat(tree[node + offsetFront[axis]]) - org[axis]) * invDir[axis];
-                        float tb = (intBitsToFloat(tree[node + offsetBack[axis]]) - org[axis]) * invDir[axis];
+                        float tf = (advstd::bit_cast<float>(tree[node + offsetFront[axis]]) - org[axis]) * invDir[axis];
+                        float tb = (advstd::bit_cast<float>(tree[node + offsetBack[axis]]) - org[axis]) * invDir[axis];
                         node = offset;
                         intervalMin = (tf >= intervalMin) ? tf : intervalMin;
                         intervalMax = (tb <= intervalMax) ? tb : intervalMax;
@@ -278,8 +254,8 @@ class TC_COMMON_API BIH
                         if (axis < 3)
                         {
                             // "normal" interior node
-                            float tl = intBitsToFloat(tree[node + 1]);
-                            float tr = intBitsToFloat(tree[node + 2]);
+                            float tl = advstd::bit_cast<float>(tree[node + 1]);
+                            float tr = advstd::bit_cast<float>(tree[node + 2]);
                             // point is between clip zones
                             if (tl < p[axis] && tr > p[axis])
                                 break;
@@ -316,8 +292,8 @@ class TC_COMMON_API BIH
                     {
                         if (axis>2)
                             return; // should not happen
-                        float tl = intBitsToFloat(tree[node + 1]);
-                        float tr = intBitsToFloat(tree[node + 2]);
+                        float tl = advstd::bit_cast<float>(tree[node + 1]);
+                        float tr = advstd::bit_cast<float>(tree[node + 2]);
                         node = offset;
                         if (tl > p[axis] || tr < p[axis])
                             break;
@@ -356,7 +332,7 @@ class TC_COMMON_API BIH
             float tfar;
         };
 
-        class BuildStats
+        class TC_COMMON_API BuildStats
         {
             private:
                 int numNodes;

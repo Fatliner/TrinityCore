@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -18,8 +18,9 @@
 #ifndef ScenePackets_h__
 #define ScenePackets_h__
 
+#include "ObjectGuid.h"
 #include "Packet.h"
-#include "Object.h"
+#include "Position.h"
 
 namespace WorldPackets
 {
@@ -33,11 +34,13 @@ namespace WorldPackets
             WorldPacket const* Write() override;
 
             int32 SceneID = 0;
-            int32 PlaybackFlags = 0;
-            int32 SceneInstanceID = 0;
+            uint32 PlaybackFlags = 0;
+            uint32 SceneInstanceID = 0;
             int32 SceneScriptPackageID = 0;
+            int32 MovieID = 0;
             ObjectGuid TransportGUID;
-            Position Location;
+            TaggedPosition<Position::XYZO> Location;
+            bool Encrypted = false;
         };
 
         class TC_GAME_API CancelScene final : public ServerPacket
@@ -69,6 +72,7 @@ namespace WorldPackets
             void Read() override;
 
             uint32 SceneInstanceID = 0;
+            int32 TimePassed = 0;
         };
 
         class ScenePlaybackCanceled final : public ClientPacket
@@ -79,6 +83,7 @@ namespace WorldPackets
             void Read() override;
 
             uint32 SceneInstanceID = 0;
+            int32 TimePassed = 0;
         };
     }
 }

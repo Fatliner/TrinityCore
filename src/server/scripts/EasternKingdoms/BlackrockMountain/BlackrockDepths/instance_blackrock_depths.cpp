@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,26 +21,36 @@
 #include "InstanceScript.h"
 #include "Log.h"
 #include "Map.h"
-#include "MotionMaster.h"
 #include "ScriptedCreature.h"
 
 #define TIMER_TOMBOFTHESEVEN    15000
-#define MAX_ENCOUNTER           6
+constexpr uint8 TOMB_OF_SEVEN_BOSS_NUM = 7;
 
 enum Creatures
 {
-    NPC_EMPEROR             = 9019,
-    NPC_PHALANX             = 9502,
-    NPC_ANGERREL            = 9035,
-    NPC_DOPEREL             = 9040,
-    NPC_HATEREL             = 9034,
-    NPC_VILEREL             = 9036,
-    NPC_SEETHREL            = 9038,
-    NPC_GLOOMREL            = 9037,
-    NPC_DOOMREL             = 9039,
-    NPC_MAGMUS              = 9938,
-    NPC_MOIRA               = 8929,
-    NPC_COREN               = 23872
+    NPC_GOLEM_LORD_ARGELMACH = 8983,
+    NPC_BAELGAR              = 9016,
+    NPC_LORD_INCENDIUS       = 9017,
+    NPC_EMPEROR              = 9019,
+    NPC_PHALANX              = 9502,
+    NPC_PYROMANCER_LOREGRAIN = 9024,
+    NPC_LORD_ROCCOR          = 9025,
+    NPC_ANGERREL             = 9035,
+    NPC_DOPEREL              = 9040,
+    NPC_HATEREL              = 9034,
+    NPC_VILEREL              = 9036,
+    NPC_SEETHREL             = 9038,
+    NPC_GLOOMREL             = 9037,
+    NPC_DOOMREL              = 9039,
+    NPC_WARDER_STILGISS      = 9041,
+    NPC_FINEOUS_DARKVIRE     = 9056,
+    NPC_HOUNDMASTER_GREBMAR  = 9319,
+    NPC_PLUGGER_SPAZZRING    = 9499,
+    NPC_HURLEY_BLACKBREATH   = 9537,
+    NPC_RIBBLY_SCREWSPIGOT   = 9543,
+    NPC_MAGMUS               = 9938,
+    NPC_MOIRA                = 8929,
+    NPC_COREN                = 23872,
 };
 
 enum GameObjects
@@ -69,6 +78,29 @@ enum GameObjects
     GO_CHEST_SEVEN          = 169243
 };
 
+static constexpr DungeonEncounterData encounters[] =
+{
+    { BOSS_HIGH_INTERROGATOR_GERSTAHN, { { 227 }} },
+    { BOSS_LORD_ROCCOR, { { 228 }} },
+    { BOSS_HOUNDMASTER_GREBMAR, { { 229 }} },
+    { BOSS_RING_OF_LAW, { { 230 }} },
+    { BOSS_PYROMANCER_LOREGRAIN, { { 231 }} },
+    { BOSS_LORD_INCENDIUS, { { 232 }} },
+    { BOSS_WARDER_STILGISS, { { 233 }} },
+    { BOSS_FINEOUS_DARKVIRE, { { 234 }} },
+    { BOSS_BAELGAR, { { 235 }} },
+    { BOSS_GENERAL_ANGERFORGE, { { 236 }} },
+    { BOSS_GOLEM_LORD_ARGELMACH, { { 237 }} },
+    { BOSS_HURLEY_BLACKBREATH, { { 238 }} },
+    { BOSS_PHALANX, { { 239 }} },
+    { BOSS_RIBBLY_SCREWSPIGOT, { { 240 }} },
+    { BOSS_PLUGGER_SPAZZRING, { { 241 }} },
+    { BOSS_AMBASSADOR_FLAMELASH, { { 242 }} },
+    { BOSS_THE_SEVEN, { { 243 }} },
+    { BOSS_MAGMUS, { { 244 }} },
+    { BOSS_EMPEROR_DAGRAN_THAURISSAN, { { 245 }} }
+};
+
 class instance_blackrock_depths : public InstanceMapScript
 {
 public:
@@ -84,16 +116,14 @@ public:
         instance_blackrock_depths_InstanceMapScript(InstanceMap* map) : InstanceScript(map)
         {
             SetHeaders(DataHeader);
-            memset(&encounter, 0, sizeof(encounter));
+            SetBossNumber(MAX_ENCOUNTER);
+            LoadDungeonEncounterData(encounters);
 
             BarAleCount = 0;
             GhostKillCount = 0;
             TombTimer = TIMER_TOMBOFTHESEVEN;
             TombEventCounter = 0;
         }
-
-        uint32 encounter[MAX_ENCOUNTER];
-        std::string str_data;
 
         ObjectGuid EmperorGUID;
         ObjectGuid PhalanxGUID;
@@ -125,7 +155,7 @@ public:
 
         uint32 BarAleCount;
         uint32 GhostKillCount;
-        ObjectGuid TombBossGUIDs[7];
+        ObjectGuid TombBossGUIDs[TOMB_OF_SEVEN_BOSS_NUM];
         ObjectGuid TombEventStarterGUID;
         uint32 TombTimer;
         uint32 TombEventCounter;
@@ -134,22 +164,22 @@ public:
         {
             switch (creature->GetEntry())
             {
-            case NPC_EMPEROR: EmperorGUID = creature->GetGUID(); break;
-            case NPC_PHALANX: PhalanxGUID = creature->GetGUID(); break;
-            case NPC_MOIRA: MoiraGUID = creature->GetGUID(); break;
-            case NPC_COREN: CorenGUID = creature->GetGUID(); break;
-            case NPC_DOOMREL: TombBossGUIDs[0] = creature->GetGUID(); break;
-            case NPC_DOPEREL: TombBossGUIDs[1] = creature->GetGUID(); break;
-            case NPC_HATEREL: TombBossGUIDs[2] = creature->GetGUID(); break;
-            case NPC_VILEREL: TombBossGUIDs[3] = creature->GetGUID(); break;
-            case NPC_SEETHREL: TombBossGUIDs[4] = creature->GetGUID(); break;
-            case NPC_GLOOMREL: TombBossGUIDs[5] = creature->GetGUID(); break;
-            case NPC_ANGERREL: TombBossGUIDs[6] = creature->GetGUID(); break;
-            case NPC_MAGMUS:
-                MagmusGUID = creature->GetGUID();
-                if (!creature->IsAlive())
-                    HandleGameObject(GetGuidData(DATA_THRONE_DOOR), true); // if Magmus is dead open door to last boss
-                break;
+                case NPC_EMPEROR: EmperorGUID = creature->GetGUID(); break;
+                case NPC_PHALANX: PhalanxGUID = creature->GetGUID(); break;
+                case NPC_MOIRA: MoiraGUID = creature->GetGUID(); break;
+                case NPC_COREN: CorenGUID = creature->GetGUID(); break;
+                case NPC_DOOMREL: TombBossGUIDs[0] = creature->GetGUID(); break;
+                case NPC_DOPEREL: TombBossGUIDs[1] = creature->GetGUID(); break;
+                case NPC_HATEREL: TombBossGUIDs[2] = creature->GetGUID(); break;
+                case NPC_VILEREL: TombBossGUIDs[3] = creature->GetGUID(); break;
+                case NPC_SEETHREL: TombBossGUIDs[4] = creature->GetGUID(); break;
+                case NPC_GLOOMREL: TombBossGUIDs[5] = creature->GetGUID(); break;
+                case NPC_ANGERREL: TombBossGUIDs[6] = creature->GetGUID(); break;
+                case NPC_MAGMUS:
+                    MagmusGUID = creature->GetGUID();
+                    if (!creature->IsAlive())
+                        HandleGameObject(GetGuidData(DATA_THRONE_DOOR), true); // if Magmus is dead open door to last boss
+                    break;
             }
         }
 
@@ -157,39 +187,58 @@ public:
         {
             switch (go->GetEntry())
             {
-            case GO_ARENA1: GoArena1GUID = go->GetGUID(); break;
-            case GO_ARENA2: GoArena2GUID = go->GetGUID(); break;
-            case GO_ARENA3: GoArena3GUID = go->GetGUID(); break;
-            case GO_ARENA4: GoArena4GUID = go->GetGUID(); break;
-            case GO_SHADOW_LOCK: GoShadowLockGUID = go->GetGUID(); break;
-            case GO_SHADOW_MECHANISM: GoShadowMechGUID = go->GetGUID(); break;
-            case GO_SHADOW_GIANT_DOOR: GoShadowGiantGUID = go->GetGUID(); break;
-            case GO_SHADOW_DUMMY: GoShadowDummyGUID = go->GetGUID(); break;
-            case GO_BAR_KEG_SHOT: GoBarKegGUID = go->GetGUID(); break;
-            case GO_BAR_KEG_TRAP: GoBarKegTrapGUID = go->GetGUID(); break;
-            case GO_BAR_DOOR: GoBarDoorGUID = go->GetGUID(); break;
-            case GO_TOMB_ENTER: GoTombEnterGUID = go->GetGUID(); break;
-            case GO_TOMB_EXIT:
-                GoTombExitGUID = go->GetGUID();
-                if (GhostKillCount >= 7)
-                    HandleGameObject(ObjectGuid::Empty, true, go);
-                else
-                    HandleGameObject(ObjectGuid::Empty, false, go);
-                break;
-            case GO_LYCEUM: GoLyceumGUID = go->GetGUID(); break;
-            case GO_SF_S: GoSFSGUID = go->GetGUID(); break;
-            case GO_SF_N: GoSFNGUID = go->GetGUID(); break;
-            case GO_GOLEM_ROOM_N: GoGolemNGUID = go->GetGUID(); break;
-            case GO_GOLEM_ROOM_S: GoGolemSGUID = go->GetGUID(); break;
-            case GO_THRONE_ROOM: GoThroneGUID = go->GetGUID(); break;
-            case GO_CHEST_SEVEN: GoChestGUID = go->GetGUID(); break;
-            case GO_SPECTRAL_CHALICE: GoSpectralChaliceGUID = go->GetGUID(); break;
+                case GO_ARENA1: GoArena1GUID = go->GetGUID(); break;
+                case GO_ARENA2: GoArena2GUID = go->GetGUID(); break;
+                case GO_ARENA3: GoArena3GUID = go->GetGUID(); break;
+                case GO_ARENA4: GoArena4GUID = go->GetGUID(); break;
+                case GO_SHADOW_LOCK: GoShadowLockGUID = go->GetGUID(); break;
+                case GO_SHADOW_MECHANISM: GoShadowMechGUID = go->GetGUID(); break;
+                case GO_SHADOW_GIANT_DOOR: GoShadowGiantGUID = go->GetGUID(); break;
+                case GO_SHADOW_DUMMY: GoShadowDummyGUID = go->GetGUID(); break;
+                case GO_BAR_KEG_SHOT: GoBarKegGUID = go->GetGUID(); break;
+                case GO_BAR_KEG_TRAP: GoBarKegTrapGUID = go->GetGUID(); break;
+                case GO_BAR_DOOR: GoBarDoorGUID = go->GetGUID(); break;
+                case GO_TOMB_ENTER: GoTombEnterGUID = go->GetGUID(); break;
+                case GO_TOMB_EXIT:
+                    GoTombExitGUID = go->GetGUID();
+                    if (GhostKillCount >= TOMB_OF_SEVEN_BOSS_NUM)
+                        HandleGameObject(ObjectGuid::Empty, true, go);
+                    else
+                        HandleGameObject(ObjectGuid::Empty, false, go);
+                    break;
+                case GO_LYCEUM: GoLyceumGUID = go->GetGUID(); break;
+                case GO_SF_S: GoSFSGUID = go->GetGUID(); break;
+                case GO_SF_N: GoSFNGUID = go->GetGUID(); break;
+                case GO_GOLEM_ROOM_N: GoGolemNGUID = go->GetGUID(); break;
+                case GO_GOLEM_ROOM_S: GoGolemSGUID = go->GetGUID(); break;
+                case GO_THRONE_ROOM: GoThroneGUID = go->GetGUID(); break;
+                case GO_CHEST_SEVEN: GoChestGUID = go->GetGUID(); break;
+                case GO_SPECTRAL_CHALICE: GoSpectralChaliceGUID = go->GetGUID(); break;
+            }
+        }
+
+        void OnUnitDeath(Unit* unit) override
+        {
+            switch (unit->GetEntry())
+            {
+                case NPC_LORD_ROCCOR: SetBossState(BOSS_LORD_ROCCOR, DONE); break;
+                case NPC_HOUNDMASTER_GREBMAR: SetBossState(BOSS_HOUNDMASTER_GREBMAR, DONE); break;
+                case NPC_PYROMANCER_LOREGRAIN: SetBossState(BOSS_PYROMANCER_LOREGRAIN, DONE); break;
+                case NPC_LORD_INCENDIUS: SetBossState(BOSS_LORD_INCENDIUS, DONE); break;
+                case NPC_WARDER_STILGISS: SetBossState(BOSS_WARDER_STILGISS, DONE); break;
+                case NPC_FINEOUS_DARKVIRE: SetBossState(BOSS_FINEOUS_DARKVIRE, DONE); break;
+                case NPC_BAELGAR: SetBossState(BOSS_BAELGAR, DONE); break;
+                case NPC_GOLEM_LORD_ARGELMACH: SetBossState(BOSS_GOLEM_LORD_ARGELMACH, DONE); break;
+                case NPC_HURLEY_BLACKBREATH: SetBossState(BOSS_HURLEY_BLACKBREATH, DONE); break;
+                case NPC_RIBBLY_SCREWSPIGOT: SetBossState(BOSS_RIBBLY_SCREWSPIGOT, DONE); break;
+                case NPC_PLUGGER_SPAZZRING: SetBossState(BOSS_PLUGGER_SPAZZRING, DONE); break;
+                default: break;
             }
         }
 
         void SetGuidData(uint32 type, ObjectGuid data) override
         {
-            TC_LOG_DEBUG("scripts", "Instance Blackrock Depths: SetGuidData update (Type: %u Data %s)", type, data.ToString().c_str());
+            TC_LOG_DEBUG("scripts", "Instance Blackrock Depths: SetGuidData update (Type: {} Data {})", type, data.ToString());
 
             switch (type)
             {
@@ -205,48 +254,34 @@ public:
 
         void SetData(uint32 type, uint32 data) override
         {
-            TC_LOG_DEBUG("scripts", "Instance Blackrock Depths: SetData update (Type: %u Data %u)", type, data);
+            TC_LOG_DEBUG("scripts", "Instance Blackrock Depths: SetData update (Type: {} Data {})", type, data);
 
             switch (type)
             {
-            case TYPE_RING_OF_LAW:
-                encounter[0] = data;
-                break;
-            case TYPE_VAULT:
-                encounter[1] = data;
-                break;
-            case TYPE_BAR:
-                if (data == SPECIAL)
-                    ++BarAleCount;
-                else
-                    encounter[2] = data;
-                break;
-            case TYPE_TOMB_OF_SEVEN:
-                encounter[3] = data;
-                break;
-            case TYPE_LYCEUM:
-                encounter[4] = data;
-                break;
-            case TYPE_IRON_HALL:
-                encounter[5] = data;
-                break;
-            case DATA_GHOSTKILL:
-                GhostKillCount += data;
-                break;
-            }
-
-            if (data == DONE || GhostKillCount >= 7)
-            {
-                OUT_SAVE_INST_DATA;
-
-                std::ostringstream saveStream;
-                saveStream << encounter[0] << ' ' << encounter[1] << ' ' << encounter[2] << ' '
-                    << encounter[3] << ' ' << encounter[4] << ' ' << encounter[5] << ' ' << GhostKillCount;
-
-                str_data = saveStream.str();
-
-                SaveToDB();
-                OUT_SAVE_INST_DATA_COMPLETE;
+                case TYPE_RING_OF_LAW:
+                    SetBossState(BOSS_RING_OF_LAW, EncounterState(data));
+                    break;
+                case TYPE_VAULT:
+                    SetBossState(1, EncounterState(data));
+                    break;
+                case TYPE_BAR:
+                    if (data == SPECIAL)
+                        ++BarAleCount;
+                    else
+                        SetBossState(2, EncounterState(data));
+                    break;
+                case TYPE_TOMB_OF_SEVEN:
+                    SetBossState(BOSS_THE_SEVEN, EncounterState(data));
+                    break;
+                case TYPE_LYCEUM:
+                    SetBossState(4, EncounterState(data));
+                    break;
+                case TYPE_IRON_HALL:
+                    SetBossState(BOSS_MAGMUS, EncounterState(data));
+                    break;
+                case DATA_GHOSTKILL:
+                    GhostKillCount += data;
+                    break;
             }
         }
 
@@ -254,23 +289,23 @@ public:
         {
             switch (type)
             {
-            case TYPE_RING_OF_LAW:
-                return encounter[0];
-            case TYPE_VAULT:
-                return encounter[1];
-            case TYPE_BAR:
-                if (encounter[2] == IN_PROGRESS && BarAleCount == 3)
-                    return SPECIAL;
-                else
-                    return encounter[2];
-            case TYPE_TOMB_OF_SEVEN:
-                return encounter[3];
-            case TYPE_LYCEUM:
-                return encounter[4];
-            case TYPE_IRON_HALL:
-                return encounter[5];
-            case DATA_GHOSTKILL:
-                return GhostKillCount;
+                case TYPE_RING_OF_LAW:
+                    return GetBossState(BOSS_RING_OF_LAW);
+                case TYPE_VAULT:
+                    return GetBossState(1);
+                case TYPE_BAR:
+                    if (GetBossState(2) == IN_PROGRESS && BarAleCount == 3)
+                        return SPECIAL;
+                    else
+                        return GetBossState(2);
+                case TYPE_TOMB_OF_SEVEN:
+                    return GetBossState(BOSS_THE_SEVEN);
+                case TYPE_LYCEUM:
+                    return GetBossState(4);
+                case TYPE_IRON_HALL:
+                    return GetBossState(BOSS_MAGMUS);
+                case DATA_GHOSTKILL:
+                    return GhostKillCount;
             }
             return 0;
         }
@@ -279,84 +314,54 @@ public:
         {
             switch (data)
             {
-            case DATA_EMPEROR:
-                return EmperorGUID;
-            case DATA_PHALANX:
-                return PhalanxGUID;
-            case DATA_MOIRA:
-                return MoiraGUID;
-            case DATA_COREN:
-                return CorenGUID;
-            case DATA_ARENA1:
-                return GoArena1GUID;
-            case DATA_ARENA2:
-                return GoArena2GUID;
-            case DATA_ARENA3:
-                return GoArena3GUID;
-            case DATA_ARENA4:
-                return GoArena4GUID;
-            case DATA_GO_BAR_KEG:
-                return GoBarKegGUID;
-            case DATA_GO_BAR_KEG_TRAP:
-                return GoBarKegTrapGUID;
-            case DATA_GO_BAR_DOOR:
-                return GoBarDoorGUID;
-            case DATA_EVENSTARTER:
-                return TombEventStarterGUID;
-            case DATA_SF_BRAZIER_N:
-                return GoSFNGUID;
-            case DATA_SF_BRAZIER_S:
-                return GoSFSGUID;
-            case DATA_THRONE_DOOR:
-                return GoThroneGUID;
-            case DATA_GOLEM_DOOR_N:
-                return GoGolemNGUID;
-            case DATA_GOLEM_DOOR_S:
-                return GoGolemSGUID;
-            case DATA_GO_CHALICE:
-                return GoSpectralChaliceGUID;
+                case DATA_EMPEROR:
+                    return EmperorGUID;
+                case DATA_PHALANX:
+                    return PhalanxGUID;
+                case DATA_MOIRA:
+                    return MoiraGUID;
+                case DATA_COREN:
+                    return CorenGUID;
+                case DATA_ARENA1:
+                    return GoArena1GUID;
+                case DATA_ARENA2:
+                    return GoArena2GUID;
+                case DATA_ARENA3:
+                    return GoArena3GUID;
+                case DATA_ARENA4:
+                    return GoArena4GUID;
+                case DATA_GO_BAR_KEG:
+                    return GoBarKegGUID;
+                case DATA_GO_BAR_KEG_TRAP:
+                    return GoBarKegTrapGUID;
+                case DATA_GO_BAR_DOOR:
+                    return GoBarDoorGUID;
+                case DATA_EVENSTARTER:
+                    return TombEventStarterGUID;
+                case DATA_SF_BRAZIER_N:
+                    return GoSFNGUID;
+                case DATA_SF_BRAZIER_S:
+                    return GoSFSGUID;
+                case DATA_THRONE_DOOR:
+                    return GoThroneGUID;
+                case DATA_GOLEM_DOOR_N:
+                    return GoGolemNGUID;
+                case DATA_GOLEM_DOOR_S:
+                    return GoGolemSGUID;
+                case DATA_GO_CHALICE:
+                    return GoSpectralChaliceGUID;
             }
             return ObjectGuid::Empty;
         }
 
-        std::string GetSaveData() override
-        {
-            return str_data;
-        }
-
-        void Load(const char* in) override
-        {
-            if (!in)
-            {
-                OUT_LOAD_INST_DATA_FAIL;
-                return;
-            }
-
-            OUT_LOAD_INST_DATA(in);
-
-            std::istringstream loadStream(in);
-            loadStream >> encounter[0] >> encounter[1] >> encounter[2] >> encounter[3]
-            >> encounter[4] >> encounter[5] >> GhostKillCount;
-
-            for (uint8 i = 0; i < MAX_ENCOUNTER; ++i)
-                if (encounter[i] == IN_PROGRESS)
-                    encounter[i] = NOT_STARTED;
-            if (GhostKillCount > 0 && GhostKillCount < 7)
-                GhostKillCount = 0;//reset tomb of seven event
-            if (GhostKillCount >= 7)
-                GhostKillCount = 7;
-
-            OUT_LOAD_INST_DATA_COMPLETE;
-        }
-
         void TombOfSevenEvent()
         {
-            if (GhostKillCount < 7 && !TombBossGUIDs[TombEventCounter].IsEmpty())
+            if (GhostKillCount < TOMB_OF_SEVEN_BOSS_NUM && !TombBossGUIDs[TombEventCounter].IsEmpty())
             {
                 if (Creature* boss = instance->GetCreature(TombBossGUIDs[TombEventCounter]))
                 {
-                    boss->setFaction(FACTION_HOSTILE);
-                    boss->RemoveUnitFlag(UNIT_FLAG_IMMUNE_TO_PC);
+                    boss->SetFaction(FACTION_DARK_IRON_DWARVES);
+                    boss->SetImmuneToPC(false);
                     if (Unit* target = boss->SelectNearestTarget(500))
                         boss->AI()->AttackStart(target);
                 }
@@ -367,21 +372,14 @@ public:
         {
             HandleGameObject(GoTombExitGUID, false);//event reseted, close exit door
             HandleGameObject(GoTombEnterGUID, true);//event reseted, open entrance door
-            for (uint8 i = 0; i < 7; ++i)
+            for (uint8 i = 0; i < TOMB_OF_SEVEN_BOSS_NUM; ++i)
             {
                 if (Creature* boss = instance->GetCreature(TombBossGUIDs[i]))
                 {
                     if (!boss->IsAlive())
-                    {//do not call EnterEvadeMode(), it will create infinit loops
                         boss->Respawn();
-                        boss->RemoveAllAuras();
-                        boss->DeleteThreatList();
-                        boss->CombatStop(true);
-                        boss->LoadCreaturesAddon();
-                        boss->GetMotionMaster()->MoveTargetedHome();
-                        boss->SetLootRecipient(NULL);
-                    }
-                    boss->setFaction(FACTION_FRIEND);
+                    else
+                        boss->SetFaction(FACTION_FRIENDLY);
                 }
             }
             GhostKillCount = 0;
@@ -400,7 +398,7 @@ public:
 
         void TombOfSevenEnd()
         {
-            DoRespawnGameObject(GoChestGUID, DAY);
+            DoRespawnGameObject(GoChestGUID, 24h);
             HandleGameObject(GoTombExitGUID, true);//event done, open exit door
             HandleGameObject(GoTombEnterGUID, true);//event done, open entrance door
             TombEventStarterGUID.Clear();
@@ -408,15 +406,19 @@ public:
         }
         void Update(uint32 diff) override
         {
-            if (!TombEventStarterGUID.IsEmpty() && GhostKillCount < 7)
+            if (!TombEventStarterGUID.IsEmpty() && GhostKillCount < TOMB_OF_SEVEN_BOSS_NUM)
             {
                 if (TombTimer <= diff)
                 {
                     TombTimer = TIMER_TOMBOFTHESEVEN;
-                    ++TombEventCounter;
-                    TombOfSevenEvent();
+                    if (TombEventCounter < TOMB_OF_SEVEN_BOSS_NUM)
+                    {
+                        TombOfSevenEvent();
+                        ++TombEventCounter;
+                    }
+
                     // Check Killed bosses
-                    for (uint8 i = 0; i < 7; ++i)
+                    for (uint8 i = 0; i < TOMB_OF_SEVEN_BOSS_NUM; ++i)
                     {
                         if (Creature* boss = instance->GetCreature(TombBossGUIDs[i]))
                         {
@@ -428,7 +430,7 @@ public:
                     }
                 } else TombTimer -= diff;
             }
-            if (GhostKillCount >= 7 && !TombEventStarterGUID.IsEmpty())
+            if (GhostKillCount >= TOMB_OF_SEVEN_BOSS_NUM && !TombEventStarterGUID.IsEmpty())
                 TombOfSevenEnd();
         }
     };

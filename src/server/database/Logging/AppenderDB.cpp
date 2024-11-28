@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,10 +20,10 @@
 #include "LogMessage.h"
 #include "PreparedStatement.h"
 
-AppenderDB::AppenderDB(uint8 id, std::string const& name, LogLevel level, AppenderFlags /*flags*/, std::vector<char const*> /*extraArgs*/)
-    : Appender(id, name, level), realmId(0), enabled(false) { }
+AppenderDB::AppenderDB(uint8 id, std::string name, LogLevel level, AppenderFlags /*flags*/, std::vector<std::string_view> const& /*args*/)
+    : Appender(id, std::move(name), level), realmId(0), enabled(false) { }
 
-AppenderDB::~AppenderDB() { }
+AppenderDB::~AppenderDB() = default;
 
 void AppenderDB::_write(LogMessage const* message)
 {

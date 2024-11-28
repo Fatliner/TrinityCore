@@ -76,19 +76,6 @@ class TC_PROTO_API SendReportRequest : public ::google::protobuf::Message {
   // implements Message ----------------------------------------------
 
   SendReportRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const SendReportRequest& from);
-  void MergeFrom(const SendReportRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -167,19 +154,6 @@ class TC_PROTO_API SubmitReportRequest : public ::google::protobuf::Message {
   // implements Message ----------------------------------------------
 
   SubmitReportRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const SubmitReportRequest& from);
-  void MergeFrom(const SubmitReportRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -247,6 +221,10 @@ class TC_PROTO_API ReportService : public ServiceBase
  public:
 
   explicit ReportService(bool use_original_hash);
+  ReportService(ReportService const&) = delete;
+  ReportService(ReportService&&) = delete;
+  ReportService& operator=(ReportService const&) = delete;
+  ReportService& operator=(ReportService&&) = delete;
   virtual ~ReportService();
 
   typedef std::integral_constant<uint32, 0x7CAF61C9u> OriginalHash;
@@ -254,26 +232,19 @@ class TC_PROTO_API ReportService : public ServiceBase
 
   static google::protobuf::ServiceDescriptor const* descriptor();
 
-  // client methods --------------------------------------------------
-
-  void SendReport(::bgs::protocol::report::v1::SendReportRequest const* request, std::function<void(::bgs::protocol::NoData const*)> responseCallback);
-  void SubmitReport(::bgs::protocol::report::v1::SubmitReportRequest const* request, std::function<void(::bgs::protocol::NoData const*)> responseCallback);
-  // server methods --------------------------------------------------
-
-  void CallServerMethod(uint32 token, uint32 methodId, MessageBuffer buffer) override final;
+  void CallServerMethod(uint32 token, uint32 methodId, MessageBuffer buffer) final;
 
  protected:
+  // server methods --------------------------------------------------
   virtual uint32 HandleSendReport(::bgs::protocol::report::v1::SendReportRequest const* request, ::bgs::protocol::NoData* response, std::function<void(ServiceBase*, uint32, ::google::protobuf::Message const*)>& continuation);
   virtual uint32 HandleSubmitReport(::bgs::protocol::report::v1::SubmitReportRequest const* request, ::bgs::protocol::NoData* response, std::function<void(ServiceBase*, uint32, ::google::protobuf::Message const*)>& continuation);
 
  private:
-  uint32 service_hash_;
-
-  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ReportService);
+  void ParseAndHandleSendReport(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleSubmitReport(uint32 token, uint32 methodId, MessageBuffer& buffer);
 };
 
 // ===================================================================
-
 
 // ===================================================================
 
@@ -454,7 +425,6 @@ inline void SubmitReportRequest::set_program(::google::protobuf::uint32 value) {
   // @@protoc_insertion_point(field_set:bgs.protocol.report.v1.SubmitReportRequest.program)
 }
 
-
 // @@protoc_insertion_point(namespace_scope)
 
 }  // namespace v1
@@ -465,8 +435,6 @@ inline void SubmitReportRequest::set_program(::google::protobuf::uint32 value) {
 #ifndef SWIG
 namespace google {
 namespace protobuf {
-
-
 }  // namespace google
 }  // namespace protobuf
 #endif  // SWIG

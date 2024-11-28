@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -42,7 +42,7 @@ ByteBuffer& operator>>(ByteBuffer& data, WorldPackets::Who::WhoWord& word)
 
 ByteBuffer& operator>>(ByteBuffer& data, Optional<WorldPackets::Who::WhoRequestServerInfo>& serverInfo)
 {
-    serverInfo = boost::in_place();
+    serverInfo.emplace();
 
     data >> serverInfo->FactionGroup;
     data >> serverInfo->Locale;
@@ -55,7 +55,7 @@ ByteBuffer& operator>>(ByteBuffer& data, WorldPackets::Who::WhoRequest& request)
 {
     data >> request.MinLevel;
     data >> request.MaxLevel;
-    data >> request.RaceFilter;
+    data >> request.RaceFilter.RawValue;
     data >> request.ClassFilter;
 
     uint32 nameLength = data.ReadBits(6);
@@ -88,8 +88,11 @@ ByteBuffer& operator>>(ByteBuffer& data, WorldPackets::Who::WhoRequest& request)
 void WorldPackets::Who::WhoRequestPkt::Read()
 {
     Areas.resize(_worldPacket.ReadBits(4));
+    IsFromAddOn = _worldPacket.ReadBit();
 
     _worldPacket >> Request;
+    _worldPacket >> RequestID;
+    _worldPacket >> Origin;
 
     for (size_t i = 0; i < Areas.size(); ++i)
         _worldPacket >> Areas[i];
@@ -125,6 +128,7 @@ ByteBuffer& operator<<(ByteBuffer& data, WorldPackets::Who::WhoResponse const& r
 
 WorldPacket const* WorldPackets::Who::WhoResponsePkt::Write()
 {
+    _worldPacket << uint32(RequestID);
     _worldPacket << Response;
 
     return &_worldPacket;

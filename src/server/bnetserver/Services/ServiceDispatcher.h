@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,22 +19,28 @@
 #define ServiceDispatcher_h__
 
 #include "MessageBuffer.h"
-#include "Log.h"
-#include "Common.h"
 #include "AccountService.h"
 #include "AuthenticationService.h"
+#include "api/client/v1/block_list_listener.pb.h"
+#include "api/client/v1/block_list_service.pb.h"
 #include "challenge_service.pb.h"
-#include "club_membership_listener.pb.h"
-#include "club_membership_service.pb.h"
+#include "api/client/v1/club_listener.pb.h"
+#include "api/client/v1/club_membership_listener.pb.h"
+#include "api/client/v1/club_membership_service.pb.h"
+#include "api/client/v1/club_service.pb.h"
 #include "ConnectionService.h"
 #include "friends_service.pb.h"
 #include "GameUtilitiesService.h"
+#include "notification_service.pb.h"
+#include "api/client/v2/notification_listener.pb.h"
+#include "api/client/v2/notification_service.pb.h"
 #include "presence_listener.pb.h"
 #include "presence_service.pb.h"
 #include "report_service.pb.h"
 #include "api/client/v2/report_service.pb.h"
 #include "resource_service.pb.h"
-#include "user_manager_service.pb.h"
+#include "api/client/v2/whisper_listener.pb.h"
+#include "api/client/v2/whisper_service.pb.h"
 
 namespace Battlenet
 {

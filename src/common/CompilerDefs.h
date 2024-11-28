@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,30 +21,21 @@
 #define TRINITY_PLATFORM_WINDOWS 0
 #define TRINITY_PLATFORM_UNIX    1
 #define TRINITY_PLATFORM_APPLE   2
-#define TRINITY_PLATFORM_INTEL   3
 
-// must be first (win 64 also define _WIN32)
-#if defined( _WIN64 )
+#if defined( _WIN32 )
 #  define TRINITY_PLATFORM TRINITY_PLATFORM_WINDOWS
-#elif defined( __WIN32__ ) || defined( WIN32 ) || defined( _WIN32 )
-#  define TRINITY_PLATFORM TRINITY_PLATFORM_WINDOWS
-#elif defined( __APPLE_CC__ )
+#elif defined( __APPLE__ )
 #  define TRINITY_PLATFORM TRINITY_PLATFORM_APPLE
-#elif defined( __INTEL_COMPILER )
-#  define TRINITY_PLATFORM TRINITY_PLATFORM_INTEL
 #else
 #  define TRINITY_PLATFORM TRINITY_PLATFORM_UNIX
 #endif
 
 #define TRINITY_COMPILER_MICROSOFT 0
 #define TRINITY_COMPILER_GNU       1
-#define TRINITY_COMPILER_BORLAND   2
-#define TRINITY_COMPILER_INTEL     3
+#define TRINITY_COMPILER_INTEL     2
 
 #ifdef _MSC_VER
 #  define TRINITY_COMPILER TRINITY_COMPILER_MICROSOFT
-#elif defined( __BORLANDC__ )
-#  define TRINITY_COMPILER TRINITY_COMPILER_BORLAND
 #elif defined( __INTEL_COMPILER )
 #  define TRINITY_COMPILER TRINITY_COMPILER_INTEL
 #elif defined( __GNUC__ )

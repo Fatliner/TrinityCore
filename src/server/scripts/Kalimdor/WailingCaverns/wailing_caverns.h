@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -24,6 +23,20 @@
 #define WCScriptName "instance_wailing_caverns"
 #define DataHeader "WC"
 
+enum WCBossIds
+{
+    BOSS_LORD_COBRAHN           = 0,
+    BOSS_LORD_PYTHAS            = 1,
+    BOSS_LADY_ANACONDRA         = 2,
+    BOSS_LORD_SERPENTIS         = 3,
+    BOSS_MUTANUS_THE_DEVOURER   = 8,
+    BOSS_KRESH                  = 9,
+    BOSS_SKUM                   = 10,
+    BOSS_VERDAN_THE_EVERLIVING  = 11,
+
+    MAX_ENCOUNTER
+};
+
 enum WCDataTypes
 {
     TYPE_LORD_COBRAHN         = 1,
@@ -40,10 +53,17 @@ enum WCDataTypes
     DATA_NARALEX              = 3679,
 };
 
-template<typename AI>
-inline AI* GetWailingCavernsAI(Creature* creature)
+enum WCCreatureIds
 {
-    return GetInstanceAI<AI>(creature, WCScriptName);
+    NPC_KRESH                   = 3653,
+    NPC_SKUM                    = 3674,
+    NPC_VERDAN_THE_EVERLIVING   = 5775
+};
+
+template <class AI, class T>
+inline AI* GetWailingCavernsAI(T* obj)
+{
+    return GetInstanceAI<AI>(obj, WCScriptName);
 }
 
 #endif

@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -17,5 +16,25 @@
  */
 
 #include "MovementGenerator.h"
+#include "StringFormat.h"
 
-MovementGenerator::~MovementGenerator() { }
+MovementGenerator::~MovementGenerator()
+{
+    // Ensure script doesn't get stuck waiting for this movement
+    SetScriptResult(MovementStopReason::Interrupted);
+}
+
+std::string MovementGenerator::GetDebugInfo() const
+{
+    return Trinity::StringFormat("Mode: {} Priority: {} Flags: {} BaseUniteState: {}",
+        Mode, Priority, Flags, BaseUnitState);
+}
+
+void MovementGenerator::SetScriptResult(MovementStopReason reason)
+{
+    if (ScriptResult)
+    {
+        ScriptResult->SetResult(reason);
+        ScriptResult.reset();
+    }
+}

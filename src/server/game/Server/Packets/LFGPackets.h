@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -41,9 +41,9 @@ namespace WorldPackets
             void Read() override;
 
             bool QueueAsGroup = false;
-            bool Unknown = false;       // Always false in 7.2.5
-            uint8 PartyIndex = 0;
-            uint32 Roles = 0;
+            bool Mercenary = false;
+            Optional<uint8> PartyIndex;
+            uint8 Roles = 0;
             Array<uint32, 50> Slots;
         };
 
@@ -77,8 +77,8 @@ namespace WorldPackets
 
             void Read() override;
 
-            uint32 RolesDesired = 0;
-            uint8 PartyIndex = 0;
+            uint8 RolesDesired = 0;
+            Optional<uint8> PartyIndex;
         };
 
         class DFBootPlayerVote final : public ClientPacket
@@ -108,7 +108,7 @@ namespace WorldPackets
 
             void Read() override;
 
-            uint8 PartyIndex = 0;
+            Optional<uint8> PartyIndex;
             bool Player = false;
         };
 
@@ -122,14 +122,15 @@ namespace WorldPackets
 
         struct LFGBlackListSlot
         {
-            LFGBlackListSlot() { }
-            LFGBlackListSlot(uint32 slot, uint32 reason, int32 subReason1, int32 subReason2)
-                : Slot(slot), Reason(reason), SubReason1(subReason1), SubReason2(subReason2) { }
+            LFGBlackListSlot() = default;
+            LFGBlackListSlot(uint32 slot, uint32 reason, int32 subReason1, int32 subReason2, uint32 softLock)
+                : Slot(slot), Reason(reason), SubReason1(subReason1), SubReason2(subReason2), SoftLock(softLock) { }
 
             uint32 Slot = 0;
             uint32 Reason = 0;
             int32 SubReason1 = 0;
             int32 SubReason2 = 0;
+            uint32 SoftLock = 0;
         };
 
         struct LFGBlackList
@@ -140,7 +141,7 @@ namespace WorldPackets
 
         struct LfgPlayerQuestRewardItem
         {
-            LfgPlayerQuestRewardItem() { }
+            LfgPlayerQuestRewardItem() = default;
             LfgPlayerQuestRewardItem(int32 itemId, int32 quantity) : ItemID(itemId), Quantity(quantity) { }
 
             int32 ItemID = 0;
@@ -149,7 +150,7 @@ namespace WorldPackets
 
         struct LfgPlayerQuestRewardCurrency
         {
-            LfgPlayerQuestRewardCurrency() { }
+            LfgPlayerQuestRewardCurrency() = default;
             LfgPlayerQuestRewardCurrency(int32 currencyID, int32 quantity) : CurrencyID(currencyID), Quantity(quantity) { }
 
             int32 CurrencyID = 0;
@@ -158,15 +159,15 @@ namespace WorldPackets
 
         struct LfgPlayerQuestReward
         {
-            uint32 Mask = 0;                                            // Roles required for this reward, only used by ShortageReward in SMSG_LFG_PLAYER_INFO
+            uint8 Mask = 0;                                             // Roles required for this reward, only used by ShortageReward in SMSG_LFG_PLAYER_INFO
             int32 RewardMoney = 0;                                      // Only used by SMSG_LFG_PLAYER_INFO
             int32 RewardXP = 0;
             std::vector<LfgPlayerQuestRewardItem> Item;
             std::vector<LfgPlayerQuestRewardCurrency> Currency;         // Only used by SMSG_LFG_PLAYER_INFO
             std::vector<LfgPlayerQuestRewardCurrency> BonusCurrency;    // Only used by SMSG_LFG_PLAYER_INFO
             Optional<int32> RewardSpellID;                              // Only used by SMSG_LFG_PLAYER_INFO
-            Optional<int32> Unused1;
-            Optional<uint64> Unused2;
+            Optional<int32> ArtifactXPCategory;
+            Optional<uint64> ArtifactXP;
             Optional<int32> Honor;                                      // Only used by SMSG_REQUEST_PVP_REWARDS_RESPONSE
         };
 
@@ -225,14 +226,15 @@ namespace WorldPackets
             uint8 SubType = 0;
             uint8 Reason = 0;
             std::vector<uint32> Slots;
-            uint32 RequestedRoles = 0;
+            uint8 RequestedRoles = 0;
             std::vector<ObjectGuid> SuspendedPlayers;
+            uint32 QueueMapID = 0;
             bool NotifyUI = false;
             bool IsParty = false;
             bool Joined = false;
             bool LfgJoined = false;
             bool Queued = false;
-            bool Unused = false;
+            bool Brawl = false;
         };
 
         class RoleChosen final : public ServerPacket
@@ -243,18 +245,18 @@ namespace WorldPackets
             WorldPacket const* Write() override;
 
             ObjectGuid Player;
-            uint32 RoleMask = 0;
+            uint8 RoleMask = 0;
             bool Accepted = false;
         };
 
         struct LFGRoleCheckUpdateMember
         {
-            LFGRoleCheckUpdateMember() { }
-            LFGRoleCheckUpdateMember(ObjectGuid guid, uint32 rolesDesired, uint8 level, bool roleCheckComplete)
+            LFGRoleCheckUpdateMember() = default;
+            LFGRoleCheckUpdateMember(ObjectGuid guid, uint8 rolesDesired, uint8 level, bool roleCheckComplete)
                 : Guid(guid), RolesDesired(rolesDesired), Level(level), RoleCheckComplete(roleCheckComplete) { }
 
             ObjectGuid Guid;
-            uint32 RolesDesired = 0;
+            uint8 RolesDesired = 0;
             uint8 Level = 0;
             bool RoleCheckComplete = false;
         };
@@ -276,24 +278,6 @@ namespace WorldPackets
             bool IsRequeue = false;
         };
 
-        struct LFGJoinBlackListSlot
-        {
-            LFGJoinBlackListSlot() { }
-            LFGJoinBlackListSlot(int32 slot, int32 reason, int32 subReason1, int32 subReason2)
-                : Slot(slot), Reason(reason), SubReason1(subReason1), SubReason2(subReason2) { }
-
-            int32 Slot = 0;
-            int32 Reason = 0;
-            int32 SubReason1 = 0;
-            int32 SubReason2 = 0;
-        };
-
-        struct LFGJoinBlackList
-        {
-            ObjectGuid Guid;
-            std::vector<LFGJoinBlackListSlot> Slots;
-        };
-
         class LFGJoinResult final : public ServerPacket
         {
         public:
@@ -304,7 +288,7 @@ namespace WorldPackets
             RideTicket Ticket;
             uint8 Result = 0;
             uint8 ResultDetail = 0;
-            std::vector<LFGJoinBlackList> BlackList;
+            std::vector<LFGBlackList> BlackList;
             std::vector<std::string const*> BlackListNames;
         };
 
@@ -326,13 +310,13 @@ namespace WorldPackets
 
         struct LFGPlayerRewards
         {
-            LFGPlayerRewards() { }
+            LFGPlayerRewards() = default;
             LFGPlayerRewards(int32 id, uint32 quantity, int32 bonusQuantity, bool isCurrency)
                 : Quantity(quantity), BonusQuantity(bonusQuantity)
             {
                 if (!isCurrency)
                 {
-                    RewardItem = boost::in_place();
+                    RewardItem.emplace();
                     RewardItem->ItemID = id;
                 }
                 else
@@ -387,7 +371,7 @@ namespace WorldPackets
 
         struct LFGProposalUpdatePlayer
         {
-            uint32 Roles = 0;
+            uint8 Roles = 0;
             bool Me = false;
             bool SameParty = false;
             bool MyParty = false;
@@ -409,10 +393,10 @@ namespace WorldPackets
             int8 State = 0;
             uint32 CompletedMask = 0;
             uint32 EncounterMask = 0;
-            uint8 Unused = 0;
+            uint8 PromisedShortageRolePriority = 0;
             bool ValidCompletedMask = false;
             bool ProposalSilent = false;
-            bool IsRequeue = false;
+            bool FailedByMyParty = false;
             std::vector<LFGProposalUpdatePlayer> Players;
         };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,8 +20,8 @@
 
 #include "Define.h"
 #include "LogCommon.h"
-#include <unordered_map>
 #include <string>
+#include <vector>
 
 class Appender;
 struct LogMessage;
@@ -31,8 +31,7 @@ class TC_COMMON_API Logger
     public:
         Logger(std::string const& name, LogLevel level);
 
-        void addAppender(uint8 type, Appender* appender);
-        void delAppender(uint8 type);
+        void addAppender(Appender* appender);
 
         std::string const& getName() const;
         LogLevel getLogLevel() const;
@@ -42,7 +41,7 @@ class TC_COMMON_API Logger
     private:
         std::string name;
         LogLevel level;
-        std::unordered_map<uint8, Appender*> appenders;
+        std::vector<Appender*> appenders;
 };
 
 #endif

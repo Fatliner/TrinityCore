@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,10 +20,13 @@
 #include "BattlenetRpcErrorCodes.h"
 #include "CharacterTemplateDataStore.h"
 #include "ClientConfigPackets.h"
+#include "DisableMgr.h"
+#include "GameTime.h"
 #include "ObjectMgr.h"
 #include "RBAC.h"
-#include "Realm.h"
+#include "RealmList.h"
 #include "SystemPackets.h"
+#include "Timezone.h"
 #include "World.h"
 
 void WorldSession::SendAuthResponse(uint32 code, bool queued, uint32 queuePos)
@@ -33,33 +36,40 @@ void WorldSession::SendAuthResponse(uint32 code, bool queued, uint32 queuePos)
 
     if (code == ERROR_OK)
     {
-        response.SuccessInfo = boost::in_place();
+        response.SuccessInfo.emplace();
 
-        response.SuccessInfo->AccountExpansionLevel = GetAccountExpansion();
         response.SuccessInfo->ActiveExpansionLevel = GetExpansion();
-        response.SuccessInfo->VirtualRealmAddress = realm.Id.GetAddress();
-        response.SuccessInfo->Time = int32(time(nullptr));
+        response.SuccessInfo->AccountExpansionLevel = GetAccountExpansion();
+        response.SuccessInfo->Time = int32(GameTime::GetGameTime());
 
         // Send current home realm. Also there is no need to send it later in realm queries.
-        response.SuccessInfo->VirtualRealms.emplace_back(realm.Id.GetAddress(), true, false, realm.Name, realm.NormalizedName);
+        if (std::shared_ptr<Realm const> currentRealm = sRealmList->GetCurrentRealm())
+        {
+            response.SuccessInfo->VirtualRealmAddress = currentRealm->Id.GetAddress();
+            response.SuccessInfo->VirtualRealms.emplace_back(currentRealm->Id.GetAddress(), true, false, currentRealm->Name, currentRealm->NormalizedName);
+        }
 
         if (HasPermission(rbac::RBAC_PERM_USE_CHARACTER_TEMPLATES))
-            for (auto const& templ : sCharacterTemplateDataStore->GetCharacterTemplates())
+            for (auto&& templ : sCharacterTemplateDataStore->GetCharacterTemplates())
                 response.SuccessInfo->Templates.push_back(&templ.second);
 
         response.SuccessInfo->AvailableClasses = &sObjectMgr->GetClassExpansionRequirements();
+
+        // TEMPORARY - prevent creating characters in uncompletable zone
+        // This has the side effect of disabling Exile's Reach choice clientside without actually forcing character templates
+        response.SuccessInfo->ForceCharacterTemplate = DisableMgr::IsDisabledFor(DISABLE_TYPE_MAP, 2175 /*Exile's Reach*/, nullptr);
     }
 
     if (queued)
     {
-        response.WaitInfo = boost::in_place();
+        response.WaitInfo.emplace();
         response.WaitInfo->WaitCount = queuePos;
     }
 
     SendPacket(response.Write());
 }
 
-void WorldSession::SendAuthWaitQue(uint32 position)
+void WorldSession::SendAuthWaitQueue(uint32 position)
 {
     if (position)
     {
@@ -83,11 +93,14 @@ void WorldSession::SendClientCacheVersion(uint32 version)
 
 void WorldSession::SendSetTimeZoneInformation()
 {
-    /// @todo: replace dummy values
-    WorldPackets::System::SetTimeZoneInformation packet;
-    packet.ServerTimeTZ = "Europe/Paris";
-    packet.GameTimeTZ = "Europe/Paris";
+    Minutes timezoneOffset = Trinity::Timezone::GetSystemZoneOffset(false);
+    std::string realTimezone = Trinity::Timezone::GetSystemZoneName();
+    std::string_view clientSupportedTZ = Trinity::Timezone::FindClosestClientSupportedTimezone(realTimezone, timezoneOffset);
 
+    WorldPackets::System::SetTimeZoneInformation packet;
+    packet.ServerTimeTZ = clientSupportedTZ;
+    packet.GameTimeTZ = clientSupportedTZ;
+    packet.ServerRegionalTimeTZ = clientSupportedTZ;
     SendPacket(packet.Write());
 }
 
@@ -98,9 +111,19 @@ void WorldSession::SendFeatureSystemStatusGlueScreen()
     features.BpayStoreDisabledByParentalControls = false;
     features.CharUndeleteEnabled = sWorld->getBoolConfig(CONFIG_FEATURE_SYSTEM_CHARACTER_UNDELETE_ENABLED);
     features.BpayStoreEnabled = sWorld->getBoolConfig(CONFIG_FEATURE_SYSTEM_BPAY_STORE_ENABLED);
-    features.MaxCharactersPerRealm = sWorld->getIntConfig(CONFIG_CHARACTERS_PER_REALM);
+    features.MaxCharactersOnThisRealm = sWorld->getIntConfig(CONFIG_CHARACTERS_PER_REALM);
     features.MinimumExpansionLevel = EXPANSION_CLASSIC;
     features.MaximumExpansionLevel = sWorld->getIntConfig(CONFIG_EXPANSION);
+
+    features.EuropaTicketSystemStatus.emplace();
+    features.EuropaTicketSystemStatus->ThrottleState.MaxTries = 10;
+    features.EuropaTicketSystemStatus->ThrottleState.PerMilliseconds = 60000;
+    features.EuropaTicketSystemStatus->ThrottleState.TryCount = 1;
+    features.EuropaTicketSystemStatus->ThrottleState.LastResetTimeBeforeNow = 111111;
+    features.EuropaTicketSystemStatus->TicketsEnabled = sWorld->getBoolConfig(CONFIG_SUPPORT_TICKETS_ENABLED);
+    features.EuropaTicketSystemStatus->BugsEnabled = sWorld->getBoolConfig(CONFIG_SUPPORT_BUGS_ENABLED);
+    features.EuropaTicketSystemStatus->ComplaintsEnabled = sWorld->getBoolConfig(CONFIG_SUPPORT_COMPLAINTS_ENABLED);
+    features.EuropaTicketSystemStatus->SuggestionsEnabled = sWorld->getBoolConfig(CONFIG_SUPPORT_SUGGESTIONS_ENABLED);
 
     SendPacket(features.Write());
 }

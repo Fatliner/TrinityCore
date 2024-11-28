@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,45 +19,30 @@
 #define TRINITYCORE_AREATRIGGER_TEMPLATE_H
 
 #include "Define.h"
+#include "EnumFlag.h"
 #include "ObjectGuid.h"
 #include "Optional.h"
-#include "Position.h"
+#include "SpawnData.h"
+#include <variant>
 #include <vector>
 
-#define MAX_AREATRIGGER_ENTITY_DATA 6
+#define MAX_AREATRIGGER_ENTITY_DATA 8
 #define MAX_AREATRIGGER_SCALE 7
 
-enum AreaTriggerFlags
+enum class AreaTriggerFlag : uint32
 {
-    AREATRIGGER_FLAG_HAS_ABSOLUTE_ORIENTATION   = 0x00001, // NYI
-    AREATRIGGER_FLAG_HAS_DYNAMIC_SHAPE          = 0x00002, // Implemented for Spheres
-    AREATRIGGER_FLAG_HAS_ATTACHED               = 0x00004,
-    AREATRIGGER_FLAG_HAS_FACE_MOVEMENT_DIR      = 0x00008,
-    AREATRIGGER_FLAG_HAS_FOLLOWS_TERRAIN        = 0x00010, // NYI
-    AREATRIGGER_FLAG_UNK1                       = 0x00020,
-    AREATRIGGER_FLAG_HAS_TARGET_ROLL_PITCH_YAW  = 0x00040, // NYI
-    AREATRIGGER_FLAG_HAS_ANIM_ID                = 0x00080,
-    AREATRIGGER_FLAG_UNK3                       = 0x00100,
-    AREATRIGGER_FLAG_HAS_ANIM_KIT_ID            = 0x00200,
-    AREATRIGGER_FLAG_HAS_CIRCULAR_MOVEMENT      = 0x00400,
-    AREATRIGGER_FLAG_UNK5                       = 0x00800,
+    None                           = 0x00,
+    IsServerSide                   = 0x01
 };
 
-enum AreaTriggerTypes
-{
-    AREATRIGGER_TYPE_SPHERE     = 0,
-    AREATRIGGER_TYPE_BOX        = 1,
-    AREATRIGGER_TYPE_UNK        = 2,
-    AREATRIGGER_TYPE_POLYGON    = 3,
-    AREATRIGGER_TYPE_CYLINDER   = 4,
-    AREATRIGGER_TYPE_MAX        = 5
-};
+DEFINE_ENUM_FLAG(AreaTriggerFlag);
 
 enum AreaTriggerActionTypes
 {
-    AREATRIGGER_ACTION_CAST     = 0,
-    AREATRIGGER_ACTION_ADDAURA  = 1,
-    AREATRIGGER_ACTION_MAX      = 2
+    AREATRIGGER_ACTION_CAST        = 0,
+    AREATRIGGER_ACTION_ADDAURA     = 1,
+    AREATRIGGER_ACTION_TELEPORT    = 2,
+    AREATRIGGER_ACTION_MAX         = 3
 };
 
 enum AreaTriggerActionUserTypes
@@ -71,6 +56,35 @@ enum AreaTriggerActionUserTypes
     AREATRIGGER_ACTION_USER_MAX    = 6
 };
 
+enum class AreaTriggerCreatePropertiesFlag : uint32
+{
+    None                           = 0x00000,
+    HasAbsoluteOrientation         = 0x00001,
+    HasDynamicShape                = 0x00002,
+    HasAttached                    = 0x00004,
+    HasFaceMovementDir             = 0x00008,
+    HasFollowsTerrain              = 0x00010, // NYI
+    AlwaysExterior                 = 0x00020,
+    HasTargetRollPitchYaw          = 0x00040, // NYI
+    HasAnimId                      = 0x00080, // DEPRECATED
+    VisualAnimIsDecay              = 0x00100,
+    HasAnimKitId                   = 0x00200, // DEPRECATED
+    HasCircularMovement            = 0x00400, // DEPRECATED
+    Unk5                           = 0x00800,
+};
+
+DEFINE_ENUM_FLAG(AreaTriggerCreatePropertiesFlag);
+
+struct AreaTriggerId
+{
+    uint32 Id = 0;
+    bool IsCustom = false;
+
+    friend bool operator==(AreaTriggerId const& left, AreaTriggerId const& right) = default;
+};
+
+typedef AreaTriggerId AreaTriggerCreatePropertiesId;
+
 struct AreaTriggerAction
 {
     uint32 Param;
@@ -78,37 +92,101 @@ struct AreaTriggerAction
     AreaTriggerActionUserTypes TargetType;
 };
 
-// Scale array definition
-// 0 - time offset from creation for starting of scaling
-// 1+2,3+4 are values for curve points Vector2[2]
-// 5 is packed curve information (has_no_data & 1) | ((interpolation_mode & 0x7) << 1) | ((first_point_offset & 0x7FFFFF) << 4) | ((point_count & 0x1F) << 27)
-// 6 bool is_override, only valid for AREATRIGGER_OVERRIDE_SCALE_CURVE, if true then use data from AREATRIGGER_OVERRIDE_SCALE_CURVE instead of ScaleCurveId from CreateObject
-
-struct AreaTriggerScaleInfo
+struct AreaTriggerScaleCurvePointsTemplate
 {
-    AreaTriggerScaleInfo();
+    AreaTriggerScaleCurvePointsTemplate();
+
+    CurveInterpolationMode Mode;
+    std::array<DBCPosition2D, 2> Points;
+};
+
+struct AreaTriggerScaleCurveTemplate
+{
+    AreaTriggerScaleCurveTemplate();
+
+    uint32 StartTimeOffset;
+    std::variant<float, AreaTriggerScaleCurvePointsTemplate> Curve;
+};
+
+struct AreaTriggerShapeInfo
+{
+    AreaTriggerShapeInfo();
+
+    bool IsSphere()         const { return Type == AreaTriggerShapeType::Sphere;        }
+    bool IsBox()            const { return Type == AreaTriggerShapeType::Box;           }
+    bool IsPolygon()        const { return Type == AreaTriggerShapeType::Polygon;       }
+    bool IsCylinder()       const { return Type == AreaTriggerShapeType::Cylinder;      }
+    bool IsDisk()           const { return Type == AreaTriggerShapeType::Disk;          }
+    bool IsBoundedPlane()   const { return Type == AreaTriggerShapeType::BoundedPlane;  }
+    float GetMaxSearchRadius() const;
+
+    AreaTriggerShapeType Type;
+
+    std::vector<TaggedPosition<Position::XY>> PolygonVertices;
+    std::vector<TaggedPosition<Position::XY>> PolygonVerticesTarget;
 
     union
     {
         struct
         {
-            uint32 StartTimeOffset;
-            float Points[4];
-            struct
-            {
-                uint32 NoData : 1;
-                uint32 InterpolationMode : 3;
-                uint32 FirstPointOffset : 23;
-                uint32 PointCount : 5;
-            } CurveParameters;
-            uint32 OverrideActive;
-        } Structured;
+            float Data[MAX_AREATRIGGER_ENTITY_DATA];
+        } DefaultDatas;
 
-        uint32 Raw[MAX_AREATRIGGER_SCALE];
-    } Data;
+        // AreaTriggerShapeType::Sphere
+        struct
+        {
+            float Radius;
+            float RadiusTarget;
+        } SphereDatas;
+
+        // AreaTriggerShapeType::Box
+        struct
+        {
+            float Extents[3];
+            float ExtentsTarget[3];
+        } BoxDatas;
+
+        // AreaTriggerShapeType::Polygon
+        struct
+        {
+            float Height;
+            float HeightTarget;
+        } PolygonDatas;
+
+        // AreaTriggerShapeType::Cylinder
+        struct
+        {
+            float Radius;
+            float RadiusTarget;
+            float Height;
+            float HeightTarget;
+            float LocationZOffset;
+            float LocationZOffsetTarget;
+        } CylinderDatas;
+
+        // AreaTriggerShapeType::Disk
+        struct
+        {
+            float InnerRadius;
+            float InnerRadiusTarget;
+            float OuterRadius;
+            float OuterRadiusTarget;
+            float Height;
+            float HeightTarget;
+            float LocationZOffset;
+            float LocationZOffsetTarget;
+        } DiskDatas;
+
+        // AreaTriggerShapeType::BoundedPlane
+        struct
+        {
+            float Extents[2];
+            float ExtentsTarget[2];
+        } BoundedPlaneDatas;
+    };
 };
 
-struct AreaTriggerCircularMovementInfo
+struct AreaTriggerOrbitInfo
 {
     Optional<ObjectGuid> PathTarget;
     Optional<TaggedPosition<Position::XYZ>> Center;
@@ -129,75 +207,24 @@ public:
     AreaTriggerTemplate();
     ~AreaTriggerTemplate();
 
-    bool HasFlag(uint32 flag) const { return (Flags & flag) != 0; }
-
-    bool IsSphere()     const { return Type == AREATRIGGER_TYPE_SPHERE;     }
-    bool IsBox()        const { return Type == AREATRIGGER_TYPE_BOX;        }
-    bool IsPolygon()    const { return Type == AREATRIGGER_TYPE_POLYGON;    }
-    bool IsCylinder()   const { return Type == AREATRIGGER_TYPE_CYLINDER;   }
-
-    void InitMaxSearchRadius();
-
-    uint32 Id;
-    AreaTriggerTypes Type;
-    uint32 Flags;
-    uint32 ScriptId;
-    float MaxSearchRadius;
-    std::vector<TaggedPosition<Position::XY>> PolygonVertices;
-    std::vector<TaggedPosition<Position::XY>> PolygonVerticesTarget;
+    AreaTriggerId Id;
+    EnumFlag<AreaTriggerFlag> Flags;
+    uint32 ActionSetId;
+    EnumFlag<AreaTriggerActionSetFlag> ActionSetFlags;
     std::vector<AreaTriggerAction> Actions;
-
-    union
-    {
-        struct
-        {
-            float Data[MAX_AREATRIGGER_ENTITY_DATA];
-        } DefaultDatas;
-
-        // AREATRIGGER_TYPE_SPHERE
-        struct
-        {
-            float Radius;
-            float RadiusTarget;
-        } SphereDatas;
-
-        // AREATRIGGER_TYPE_BOX
-        struct
-        {
-            float Extents[3];
-            float ExtentsTarget[3];
-        } BoxDatas;
-
-        // AREATRIGGER_TYPE_POLYGON
-        struct
-        {
-            float Height;
-            float HeightTarget;
-        } PolygonDatas;
-
-        // AREATRIGGER_TYPE_CYLINDER
-        struct
-        {
-            float Radius;
-            float RadiusTarget;
-            float Height;
-            float HeightTarget;
-            float LocationZOffset;
-            float LocationZOffsetTarget;
-        } CylinderDatas;
-    };
 };
 
-class AreaTriggerMiscTemplate
+class AreaTriggerCreateProperties
 {
 public:
-    AreaTriggerMiscTemplate();
-    ~AreaTriggerMiscTemplate();
+    AreaTriggerCreateProperties();
+    ~AreaTriggerCreateProperties();
 
-    bool HasSplines()   const;
+    bool HasSplines() const;
 
-    uint32 MiscId;
-    uint32 AreaTriggerEntry;
+    AreaTriggerCreatePropertiesId Id;
+    AreaTriggerTemplate const* Template;
+    EnumFlag<AreaTriggerCreatePropertiesFlag> Flags;
 
     uint32 MoveCurveId;
     uint32 ScaleCurveId;
@@ -209,15 +236,27 @@ public:
 
     uint32 DecalPropertiesId;
 
+    Optional<int32> SpellForVisuals;
+
     uint32 TimeToTarget;
     uint32 TimeToTargetScale;
 
-    AreaTriggerScaleInfo OverrideScale;
-    AreaTriggerScaleInfo ExtraScale;
-    AreaTriggerCircularMovementInfo CircularMovementInfo;
+    Optional<AreaTriggerScaleCurveTemplate> OverrideScale;
+    Optional<AreaTriggerScaleCurveTemplate> ExtraScale;
 
-    AreaTriggerTemplate const* Template;
+    AreaTriggerShapeInfo Shape;
+
     std::vector<Position> SplinePoints;
+    Optional<AreaTriggerOrbitInfo> OrbitInfo;
+
+    uint32 ScriptId;
+};
+
+struct AreaTriggerSpawn : SpawnData
+{
+    AreaTriggerSpawn() : SpawnData(SPAWN_TYPE_AREATRIGGER) { }
+
+    AreaTriggerCreatePropertiesId Id;
 };
 
 #endif

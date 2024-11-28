@@ -1,4 +1,4 @@
-# Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+# This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
 #
 # This file is free software; as a special exception the author gives
 # unlimited permission to copy and/or distribute it, with or without
@@ -24,3 +24,8 @@ target_link_libraries(extractor_common
 target_include_directories(extractor_common
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR})
+
+set_target_properties(extractor_common
+  PROPERTIES
+    COMPILE_WARNING_AS_ERROR ${WITH_WARNINGS_AS_ERRORS}
+    FOLDER "tools")

@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -24,24 +23,40 @@
 #define ZFScriptName "instance_zulfarrak"
 #define DataHeader "ZF"
 
+enum ZFBossIds
+{
+    BOSS_HYDROMANCER_VELRATHA   = 0,
+    BOSS_GAHZ_RILLA             = 1,
+    BOSS_ANTU_SUL               = 2,
+    BOSS_THEKA_THE_MARTYR       = 3,
+    BOSS_WITCH_DOCTOR_ZUM_RAH   = 4,
+    BOSS_NEKRUM_GUTCHEWER       = 5,
+    BOSS_SHADOWPRIEST_SEZZ_ZIZ  = 6,
+    BOSS_CHIEF_UKORZ_SANDSCALP  = 7,
+
+    MAX_ENCOUNTER
+};
+
 enum ZFEntries
 {
+    ENTRY_SANDSCALP     = 7267,
     ENTRY_ZUM_RAH       = 7271,
+    ENTRY_THEKA         = 7272,
+    ENTRY_GAHZRILLA     = 7273,
+    ENTRY_SEZZZIZ       = 7275,
     ENTRY_BLY           = 7604,
     ENTRY_RAVEN         = 7605,
     ENTRY_ORO           = 7606,
     ENTRY_WEEGLI        = 7607,
     ENTRY_MURTA         = 7608,
+    ENTRY_VELRTHA       = 7795,
+    ENTRY_NEKRUM        = 7796,
+    ENTRY_ANTUSUL       = 8127,
 
     GO_END_DOOR         = 146084,
 
     EVENT_PYRAMID       = 1,
     EVENT_GAHZRILLA
-};
-
-enum ZFDataTypes
-{
-    DATA_ZUM_RAH = 0
 };
 
 enum ZFPyramidPhases
@@ -57,10 +72,10 @@ enum ZFPyramidPhases
     PYRAMID_KILLED_ALL_TROLLS,
 };
 
-template<typename AI>
-inline AI* GetZulFarrakAI(Creature* creature)
+template <class AI, class T>
+inline AI* GetZulFarrakAI(T* obj)
 {
-    return GetInstanceAI<AI>(creature, ZFScriptName);
+    return GetInstanceAI<AI>(obj, ZFScriptName);
 }
 
 #endif

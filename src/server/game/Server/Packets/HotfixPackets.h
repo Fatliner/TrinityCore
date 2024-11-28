@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -18,11 +18,9 @@
 #ifndef HotfixPackets_h__
 #define HotfixPackets_h__
 
-#include "Packet.h"
 #include "Common.h"
 #include "DB2Stores.h"
-#include "ObjectGuid.h"
-#include "Optional.h"
+#include "Packet.h"
 
 namespace WorldPackets
 {
@@ -33,7 +31,6 @@ namespace WorldPackets
         public:
             struct DBQueryRecord
             {
-                ObjectGuid GUID;
                 uint32 RecordID = 0;
             };
 
@@ -48,35 +45,26 @@ namespace WorldPackets
         class DBReply final : public ServerPacket
         {
         public:
-            DBReply() : ServerPacket(SMSG_DB_REPLY, 12) { }
+            DBReply() : ServerPacket(SMSG_DB_REPLY, 4 + 4 + 4 + 1 + 4) { }
 
             WorldPacket const* Write() override;
 
             uint32 TableHash = 0;
             uint32 Timestamp = 0;
             uint32 RecordID = 0;
-            bool Allow = false;
+            DB2Manager::HotfixRecord::Status Status = DB2Manager::HotfixRecord::Status::Invalid;
             ByteBuffer Data;
         };
 
         class AvailableHotfixes final : public ServerPacket
         {
         public:
-            AvailableHotfixes(int32 hotfixCacheVersion, uint32 hotfixCount, DB2Manager::HotfixContainer const& hotfixes)
-                : ServerPacket(SMSG_AVAILABLE_HOTFIXES), HotfixCacheVersion(hotfixCacheVersion), HotfixCount(hotfixCount), Hotfixes(hotfixes) { }
+            AvailableHotfixes() : ServerPacket(SMSG_AVAILABLE_HOTFIXES, 0) { }
 
             WorldPacket const* Write() override;
 
-            int32 HotfixCacheVersion;
-            uint32 HotfixCount;
-            DB2Manager::HotfixContainer const& Hotfixes;
-        };
-
-        struct HotfixRecord
-        {
-            uint32 TableHash = 0;
-            int32 RecordID = 0;
-            int32 HotfixID = 0;
+            int32 VirtualRealmAddress = 0;
+            std::set<DB2Manager::HotfixId> Hotfixes;
         };
 
         class HotfixRequest final : public ClientPacket
@@ -88,19 +76,19 @@ namespace WorldPackets
 
             uint32 ClientBuild = 0;
             uint32 DataBuild = 0;
-            std::vector<HotfixRecord> Hotfixes;
+            std::vector<int32> Hotfixes;
         };
 
-        class HotfixResponse final : public ServerPacket
+        class HotfixConnect final : public ServerPacket
         {
         public:
             struct HotfixData
             {
-                HotfixRecord Record;
-                Optional<uint32> Size;
+                DB2Manager::HotfixRecord Record;
+                uint32 Size = 0;
             };
 
-            HotfixResponse() : ServerPacket(SMSG_HOTFIX_RESPONSE) { }
+            HotfixConnect() : ServerPacket(SMSG_HOTFIX_CONNECT) { }
 
             WorldPacket const* Write() override;
 

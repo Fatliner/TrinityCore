@@ -48,7 +48,6 @@ class ResolveAccountResponse;
 class GameAccountFlagUpdateRequest;
 class SubscriptionUpdateRequest;
 class SubscriptionUpdateResponse;
-class IsIgrAddressRequest;
 class GetAccountStateRequest;
 class GetAccountStateResponse;
 class GetSignedAccountStateRequest;
@@ -65,6 +64,10 @@ class GetCAISInfoRequest;
 class GetCAISInfoResponse;
 class GetAuthorizedDataRequest;
 class GetAuthorizedDataResponse;
+class GetAccountInfoRequest;
+class GetAccountInfoResponse;
+class GetAccountPlatformRestrictionsRequest;
+class GetAccountPlatformRestrictionsResponse;
 class AccountStateNotification;
 class GameAccountStateNotification;
 class GameAccountNotification;
@@ -100,19 +103,6 @@ class TC_PROTO_API ResolveAccountRequest : public ::google::protobuf::Message {
   // implements Message ----------------------------------------------
 
   ResolveAccountRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const ResolveAccountRequest& from);
-  void MergeFrom(const ResolveAccountRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -191,19 +181,6 @@ class TC_PROTO_API ResolveAccountResponse : public ::google::protobuf::Message {
   // implements Message ----------------------------------------------
 
   ResolveAccountResponse* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const ResolveAccountResponse& from);
-  void MergeFrom(const ResolveAccountResponse& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -272,19 +249,6 @@ class TC_PROTO_API GameAccountFlagUpdateRequest : public ::google::protobuf::Mes
   // implements Message ----------------------------------------------
 
   GameAccountFlagUpdateRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GameAccountFlagUpdateRequest& from);
-  void MergeFrom(const GameAccountFlagUpdateRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -373,19 +337,6 @@ class TC_PROTO_API SubscriptionUpdateRequest : public ::google::protobuf::Messag
   // implements Message ----------------------------------------------
 
   SubscriptionUpdateRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const SubscriptionUpdateRequest& from);
-  void MergeFrom(const SubscriptionUpdateRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -455,19 +406,6 @@ class TC_PROTO_API SubscriptionUpdateResponse : public ::google::protobuf::Messa
   // implements Message ----------------------------------------------
 
   SubscriptionUpdateResponse* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const SubscriptionUpdateResponse& from);
-  void MergeFrom(const SubscriptionUpdateResponse& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -509,100 +447,6 @@ class TC_PROTO_API SubscriptionUpdateResponse : public ::google::protobuf::Messa
 };
 // -------------------------------------------------------------------
 
-class TC_PROTO_API IsIgrAddressRequest : public ::google::protobuf::Message {
- public:
-  IsIgrAddressRequest();
-  virtual ~IsIgrAddressRequest();
-
-  IsIgrAddressRequest(const IsIgrAddressRequest& from);
-
-  inline IsIgrAddressRequest& operator=(const IsIgrAddressRequest& from) {
-    CopyFrom(from);
-    return *this;
-  }
-
-  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const {
-    return _unknown_fields_;
-  }
-
-  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields() {
-    return &_unknown_fields_;
-  }
-
-  static const ::google::protobuf::Descriptor* descriptor();
-  static const IsIgrAddressRequest& default_instance();
-
-  void Swap(IsIgrAddressRequest* other);
-
-  // implements Message ----------------------------------------------
-
-  IsIgrAddressRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const IsIgrAddressRequest& from);
-  void MergeFrom(const IsIgrAddressRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
-  int GetCachedSize() const { return _cached_size_; }
-  private:
-  void SharedCtor();
-  void SharedDtor();
-  void SetCachedSize(int size) const;
-  public:
-  ::google::protobuf::Metadata GetMetadata() const;
-
-  // nested types ----------------------------------------------------
-
-  // accessors -------------------------------------------------------
-
-  // optional string client_address = 1;
-  inline bool has_client_address() const;
-  inline void clear_client_address();
-  static const int kClientAddressFieldNumber = 1;
-  inline const ::std::string& client_address() const;
-  inline void set_client_address(const ::std::string& value);
-  inline void set_client_address(const char* value);
-  inline void set_client_address(const char* value, size_t size);
-  inline ::std::string* mutable_client_address();
-  inline ::std::string* release_client_address();
-  inline void set_allocated_client_address(::std::string* client_address);
-
-  // optional uint32 region = 2;
-  inline bool has_region() const;
-  inline void clear_region();
-  static const int kRegionFieldNumber = 2;
-  inline ::google::protobuf::uint32 region() const;
-  inline void set_region(::google::protobuf::uint32 value);
-
-  // @@protoc_insertion_point(class_scope:bgs.protocol.account.v1.IsIgrAddressRequest)
- private:
-  inline void set_has_client_address();
-  inline void clear_has_client_address();
-  inline void set_has_region();
-  inline void clear_has_region();
-
-  ::google::protobuf::UnknownFieldSet _unknown_fields_;
-
-  ::google::protobuf::uint32 _has_bits_[1];
-  mutable int _cached_size_;
-  ::std::string* client_address_;
-  ::google::protobuf::uint32 region_;
-  friend void TC_PROTO_API protobuf_AddDesc_account_5fservice_2eproto();
-  friend void protobuf_AssignDesc_account_5fservice_2eproto();
-  friend void protobuf_ShutdownFile_account_5fservice_2eproto();
-
-  void InitAsDefaultInstance();
-  static IsIgrAddressRequest* default_instance_;
-};
-// -------------------------------------------------------------------
-
 class TC_PROTO_API GetAccountStateRequest : public ::google::protobuf::Message {
  public:
   GetAccountStateRequest();
@@ -631,19 +475,6 @@ class TC_PROTO_API GetAccountStateRequest : public ::google::protobuf::Message {
   // implements Message ----------------------------------------------
 
   GetAccountStateRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetAccountStateRequest& from);
-  void MergeFrom(const GetAccountStateRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -756,19 +587,6 @@ class TC_PROTO_API GetAccountStateResponse : public ::google::protobuf::Message 
   // implements Message ----------------------------------------------
 
   GetAccountStateResponse* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetAccountStateResponse& from);
-  void MergeFrom(const GetAccountStateResponse& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -849,19 +667,6 @@ class TC_PROTO_API GetSignedAccountStateRequest : public ::google::protobuf::Mes
   // implements Message ----------------------------------------------
 
   GetSignedAccountStateRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetSignedAccountStateRequest& from);
-  void MergeFrom(const GetSignedAccountStateRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -930,19 +735,6 @@ class TC_PROTO_API GetSignedAccountStateResponse : public ::google::protobuf::Me
   // implements Message ----------------------------------------------
 
   GetSignedAccountStateResponse* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetSignedAccountStateResponse& from);
-  void MergeFrom(const GetSignedAccountStateResponse& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -1014,19 +806,6 @@ class TC_PROTO_API GetGameAccountStateRequest : public ::google::protobuf::Messa
   // implements Message ----------------------------------------------
 
   GetGameAccountStateRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetGameAccountStateRequest& from);
-  void MergeFrom(const GetGameAccountStateRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -1131,19 +910,6 @@ class TC_PROTO_API GetGameAccountStateResponse : public ::google::protobuf::Mess
   // implements Message ----------------------------------------------
 
   GetGameAccountStateResponse* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetGameAccountStateResponse& from);
-  void MergeFrom(const GetGameAccountStateResponse& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -1224,19 +990,6 @@ class TC_PROTO_API GetLicensesRequest : public ::google::protobuf::Message {
   // implements Message ----------------------------------------------
 
   GetLicensesRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetLicensesRequest& from);
-  void MergeFrom(const GetLicensesRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -1355,19 +1108,6 @@ class TC_PROTO_API GetLicensesResponse : public ::google::protobuf::Message {
   // implements Message ----------------------------------------------
 
   GetLicensesResponse* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetLicensesResponse& from);
-  void MergeFrom(const GetLicensesResponse& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -1437,19 +1177,6 @@ class TC_PROTO_API GetGameSessionInfoRequest : public ::google::protobuf::Messag
   // implements Message ----------------------------------------------
 
   GetGameSessionInfoRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetGameSessionInfoRequest& from);
-  void MergeFrom(const GetGameSessionInfoRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -1518,19 +1245,6 @@ class TC_PROTO_API GetGameSessionInfoResponse : public ::google::protobuf::Messa
   // implements Message ----------------------------------------------
 
   GetGameSessionInfoResponse* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetGameSessionInfoResponse& from);
-  void MergeFrom(const GetGameSessionInfoResponse& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -1599,19 +1313,6 @@ class TC_PROTO_API GetGameTimeRemainingInfoRequest : public ::google::protobuf::
   // implements Message ----------------------------------------------
 
   GetGameTimeRemainingInfoRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetGameTimeRemainingInfoRequest& from);
-  void MergeFrom(const GetGameTimeRemainingInfoRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -1642,12 +1343,26 @@ class TC_PROTO_API GetGameTimeRemainingInfoRequest : public ::google::protobuf::
   inline ::bgs::protocol::EntityId* release_account_id();
   inline void set_allocated_account_id(::bgs::protocol::EntityId* account_id);
 
+  // optional string benefactor_id = 3;
+  inline bool has_benefactor_id() const;
+  inline void clear_benefactor_id();
+  static const int kBenefactorIdFieldNumber = 3;
+  inline const ::std::string& benefactor_id() const;
+  inline void set_benefactor_id(const ::std::string& value);
+  inline void set_benefactor_id(const char* value);
+  inline void set_benefactor_id(const char* value, size_t size);
+  inline ::std::string* mutable_benefactor_id();
+  inline ::std::string* release_benefactor_id();
+  inline void set_allocated_benefactor_id(::std::string* benefactor_id);
+
   // @@protoc_insertion_point(class_scope:bgs.protocol.account.v1.GetGameTimeRemainingInfoRequest)
  private:
   inline void set_has_game_account_id();
   inline void clear_has_game_account_id();
   inline void set_has_account_id();
   inline void clear_has_account_id();
+  inline void set_has_benefactor_id();
+  inline void clear_has_benefactor_id();
 
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
 
@@ -1655,6 +1370,7 @@ class TC_PROTO_API GetGameTimeRemainingInfoRequest : public ::google::protobuf::
   mutable int _cached_size_;
   ::bgs::protocol::EntityId* game_account_id_;
   ::bgs::protocol::EntityId* account_id_;
+  ::std::string* benefactor_id_;
   friend void TC_PROTO_API protobuf_AddDesc_account_5fservice_2eproto();
   friend void protobuf_AssignDesc_account_5fservice_2eproto();
   friend void protobuf_ShutdownFile_account_5fservice_2eproto();
@@ -1692,19 +1408,6 @@ class TC_PROTO_API GetGameTimeRemainingInfoResponse : public ::google::protobuf:
   // implements Message ----------------------------------------------
 
   GetGameTimeRemainingInfoResponse* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetGameTimeRemainingInfoResponse& from);
-  void MergeFrom(const GetGameTimeRemainingInfoResponse& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -1773,19 +1476,6 @@ class TC_PROTO_API GetCAISInfoRequest : public ::google::protobuf::Message {
   // implements Message ----------------------------------------------
 
   GetCAISInfoRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetCAISInfoRequest& from);
-  void MergeFrom(const GetCAISInfoRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -1854,19 +1544,6 @@ class TC_PROTO_API GetCAISInfoResponse : public ::google::protobuf::Message {
   // implements Message ----------------------------------------------
 
   GetCAISInfoResponse* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetCAISInfoResponse& from);
-  void MergeFrom(const GetCAISInfoResponse& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -1935,19 +1612,6 @@ class TC_PROTO_API GetAuthorizedDataRequest : public ::google::protobuf::Message
   // implements Message ----------------------------------------------
 
   GetAuthorizedDataRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetAuthorizedDataRequest& from);
-  void MergeFrom(const GetAuthorizedDataRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -2043,19 +1707,6 @@ class TC_PROTO_API GetAuthorizedDataResponse : public ::google::protobuf::Messag
   // implements Message ----------------------------------------------
 
   GetAuthorizedDataResponse* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GetAuthorizedDataResponse& from);
-  void MergeFrom(const GetAuthorizedDataResponse& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -2097,6 +1748,278 @@ class TC_PROTO_API GetAuthorizedDataResponse : public ::google::protobuf::Messag
 };
 // -------------------------------------------------------------------
 
+class TC_PROTO_API GetAccountInfoRequest : public ::google::protobuf::Message {
+ public:
+  GetAccountInfoRequest();
+  virtual ~GetAccountInfoRequest();
+
+  GetAccountInfoRequest(const GetAccountInfoRequest& from);
+
+  inline GetAccountInfoRequest& operator=(const GetAccountInfoRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const {
+    return _unknown_fields_;
+  }
+
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields() {
+    return &_unknown_fields_;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const GetAccountInfoRequest& default_instance();
+
+  void Swap(GetAccountInfoRequest* other);
+
+  // implements Message ----------------------------------------------
+
+  GetAccountInfoRequest* New() const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // optional .bgs.protocol.EntityId account_id = 1;
+  inline bool has_account_id() const;
+  inline void clear_account_id();
+  static const int kAccountIdFieldNumber = 1;
+  inline const ::bgs::protocol::EntityId& account_id() const;
+  inline ::bgs::protocol::EntityId* mutable_account_id();
+  inline ::bgs::protocol::EntityId* release_account_id();
+  inline void set_allocated_account_id(::bgs::protocol::EntityId* account_id);
+
+  // @@protoc_insertion_point(class_scope:bgs.protocol.account.v1.GetAccountInfoRequest)
+ private:
+  inline void set_has_account_id();
+  inline void clear_has_account_id();
+
+  ::google::protobuf::UnknownFieldSet _unknown_fields_;
+
+  ::google::protobuf::uint32 _has_bits_[1];
+  mutable int _cached_size_;
+  ::bgs::protocol::EntityId* account_id_;
+  friend void TC_PROTO_API protobuf_AddDesc_account_5fservice_2eproto();
+  friend void protobuf_AssignDesc_account_5fservice_2eproto();
+  friend void protobuf_ShutdownFile_account_5fservice_2eproto();
+
+  void InitAsDefaultInstance();
+  static GetAccountInfoRequest* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class TC_PROTO_API GetAccountInfoResponse : public ::google::protobuf::Message {
+ public:
+  GetAccountInfoResponse();
+  virtual ~GetAccountInfoResponse();
+
+  GetAccountInfoResponse(const GetAccountInfoResponse& from);
+
+  inline GetAccountInfoResponse& operator=(const GetAccountInfoResponse& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const {
+    return _unknown_fields_;
+  }
+
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields() {
+    return &_unknown_fields_;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const GetAccountInfoResponse& default_instance();
+
+  void Swap(GetAccountInfoResponse* other);
+
+  // implements Message ----------------------------------------------
+
+  GetAccountInfoResponse* New() const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // optional .bgs.protocol.account.v1.AccountInfo account_info = 1;
+  inline bool has_account_info() const;
+  inline void clear_account_info();
+  static const int kAccountInfoFieldNumber = 1;
+  inline const ::bgs::protocol::account::v1::AccountInfo& account_info() const;
+  inline ::bgs::protocol::account::v1::AccountInfo* mutable_account_info();
+  inline ::bgs::protocol::account::v1::AccountInfo* release_account_info();
+  inline void set_allocated_account_info(::bgs::protocol::account::v1::AccountInfo* account_info);
+
+  // @@protoc_insertion_point(class_scope:bgs.protocol.account.v1.GetAccountInfoResponse)
+ private:
+  inline void set_has_account_info();
+  inline void clear_has_account_info();
+
+  ::google::protobuf::UnknownFieldSet _unknown_fields_;
+
+  ::google::protobuf::uint32 _has_bits_[1];
+  mutable int _cached_size_;
+  ::bgs::protocol::account::v1::AccountInfo* account_info_;
+  friend void TC_PROTO_API protobuf_AddDesc_account_5fservice_2eproto();
+  friend void protobuf_AssignDesc_account_5fservice_2eproto();
+  friend void protobuf_ShutdownFile_account_5fservice_2eproto();
+
+  void InitAsDefaultInstance();
+  static GetAccountInfoResponse* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class TC_PROTO_API GetAccountPlatformRestrictionsRequest : public ::google::protobuf::Message {
+ public:
+  GetAccountPlatformRestrictionsRequest();
+  virtual ~GetAccountPlatformRestrictionsRequest();
+
+  GetAccountPlatformRestrictionsRequest(const GetAccountPlatformRestrictionsRequest& from);
+
+  inline GetAccountPlatformRestrictionsRequest& operator=(const GetAccountPlatformRestrictionsRequest& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const {
+    return _unknown_fields_;
+  }
+
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields() {
+    return &_unknown_fields_;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const GetAccountPlatformRestrictionsRequest& default_instance();
+
+  void Swap(GetAccountPlatformRestrictionsRequest* other);
+
+  // implements Message ----------------------------------------------
+
+  GetAccountPlatformRestrictionsRequest* New() const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // optional .bgs.protocol.EntityId account_id = 1;
+  inline bool has_account_id() const;
+  inline void clear_account_id();
+  static const int kAccountIdFieldNumber = 1;
+  inline const ::bgs::protocol::EntityId& account_id() const;
+  inline ::bgs::protocol::EntityId* mutable_account_id();
+  inline ::bgs::protocol::EntityId* release_account_id();
+  inline void set_allocated_account_id(::bgs::protocol::EntityId* account_id);
+
+  // @@protoc_insertion_point(class_scope:bgs.protocol.account.v1.GetAccountPlatformRestrictionsRequest)
+ private:
+  inline void set_has_account_id();
+  inline void clear_has_account_id();
+
+  ::google::protobuf::UnknownFieldSet _unknown_fields_;
+
+  ::google::protobuf::uint32 _has_bits_[1];
+  mutable int _cached_size_;
+  ::bgs::protocol::EntityId* account_id_;
+  friend void TC_PROTO_API protobuf_AddDesc_account_5fservice_2eproto();
+  friend void protobuf_AssignDesc_account_5fservice_2eproto();
+  friend void protobuf_ShutdownFile_account_5fservice_2eproto();
+
+  void InitAsDefaultInstance();
+  static GetAccountPlatformRestrictionsRequest* default_instance_;
+};
+// -------------------------------------------------------------------
+
+class TC_PROTO_API GetAccountPlatformRestrictionsResponse : public ::google::protobuf::Message {
+ public:
+  GetAccountPlatformRestrictionsResponse();
+  virtual ~GetAccountPlatformRestrictionsResponse();
+
+  GetAccountPlatformRestrictionsResponse(const GetAccountPlatformRestrictionsResponse& from);
+
+  inline GetAccountPlatformRestrictionsResponse& operator=(const GetAccountPlatformRestrictionsResponse& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const {
+    return _unknown_fields_;
+  }
+
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields() {
+    return &_unknown_fields_;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const GetAccountPlatformRestrictionsResponse& default_instance();
+
+  void Swap(GetAccountPlatformRestrictionsResponse* other);
+
+  // implements Message ----------------------------------------------
+
+  GetAccountPlatformRestrictionsResponse* New() const;
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  public:
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // optional .bgs.protocol.account.v1.AccountPlatformRestrictionInfo restriction_info = 1;
+  inline bool has_restriction_info() const;
+  inline void clear_restriction_info();
+  static const int kRestrictionInfoFieldNumber = 1;
+  inline const ::bgs::protocol::account::v1::AccountPlatformRestrictionInfo& restriction_info() const;
+  inline ::bgs::protocol::account::v1::AccountPlatformRestrictionInfo* mutable_restriction_info();
+  inline ::bgs::protocol::account::v1::AccountPlatformRestrictionInfo* release_restriction_info();
+  inline void set_allocated_restriction_info(::bgs::protocol::account::v1::AccountPlatformRestrictionInfo* restriction_info);
+
+  // @@protoc_insertion_point(class_scope:bgs.protocol.account.v1.GetAccountPlatformRestrictionsResponse)
+ private:
+  inline void set_has_restriction_info();
+  inline void clear_has_restriction_info();
+
+  ::google::protobuf::UnknownFieldSet _unknown_fields_;
+
+  ::google::protobuf::uint32 _has_bits_[1];
+  mutable int _cached_size_;
+  ::bgs::protocol::account::v1::AccountPlatformRestrictionInfo* restriction_info_;
+  friend void TC_PROTO_API protobuf_AddDesc_account_5fservice_2eproto();
+  friend void protobuf_AssignDesc_account_5fservice_2eproto();
+  friend void protobuf_ShutdownFile_account_5fservice_2eproto();
+
+  void InitAsDefaultInstance();
+  static GetAccountPlatformRestrictionsResponse* default_instance_;
+};
+// -------------------------------------------------------------------
+
 class TC_PROTO_API AccountStateNotification : public ::google::protobuf::Message {
  public:
   AccountStateNotification();
@@ -2125,19 +2048,6 @@ class TC_PROTO_API AccountStateNotification : public ::google::protobuf::Message
   // implements Message ----------------------------------------------
 
   AccountStateNotification* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const AccountStateNotification& from);
-  void MergeFrom(const AccountStateNotification& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -2238,19 +2148,6 @@ class TC_PROTO_API GameAccountStateNotification : public ::google::protobuf::Mes
   // implements Message ----------------------------------------------
 
   GameAccountStateNotification* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GameAccountStateNotification& from);
-  void MergeFrom(const GameAccountStateNotification& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -2351,19 +2248,6 @@ class TC_PROTO_API GameAccountNotification : public ::google::protobuf::Message 
   // implements Message ----------------------------------------------
 
   GameAccountNotification* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GameAccountNotification& from);
-  void MergeFrom(const GameAccountNotification& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -2455,19 +2339,6 @@ class TC_PROTO_API GameAccountSessionNotification : public ::google::protobuf::M
   // implements Message ----------------------------------------------
 
   GameAccountSessionNotification* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const GameAccountSessionNotification& from);
-  void MergeFrom(const GameAccountSessionNotification& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -2525,6 +2396,10 @@ class TC_PROTO_API AccountService : public ServiceBase
  public:
 
   explicit AccountService(bool use_original_hash);
+  AccountService(AccountService const&) = delete;
+  AccountService(AccountService&&) = delete;
+  AccountService& operator=(AccountService const&) = delete;
+  AccountService& operator=(AccountService&&) = delete;
   virtual ~AccountService();
 
   typedef std::integral_constant<uint32, 0x62DA0891u> OriginalHash;
@@ -2532,27 +2407,11 @@ class TC_PROTO_API AccountService : public ServiceBase
 
   static google::protobuf::ServiceDescriptor const* descriptor();
 
-  // client methods --------------------------------------------------
-
-  void ResolveAccount(::bgs::protocol::account::v1::ResolveAccountRequest const* request, std::function<void(::bgs::protocol::account::v1::ResolveAccountResponse const*)> responseCallback);
-  void IsIgrAddress(::bgs::protocol::account::v1::IsIgrAddressRequest const* request, std::function<void(::bgs::protocol::NoData const*)> responseCallback);
-  void Subscribe(::bgs::protocol::account::v1::SubscriptionUpdateRequest const* request, std::function<void(::bgs::protocol::account::v1::SubscriptionUpdateResponse const*)> responseCallback);
-  void Unsubscribe(::bgs::protocol::account::v1::SubscriptionUpdateRequest const* request, std::function<void(::bgs::protocol::NoData const*)> responseCallback);
-  void GetAccountState(::bgs::protocol::account::v1::GetAccountStateRequest const* request, std::function<void(::bgs::protocol::account::v1::GetAccountStateResponse const*)> responseCallback);
-  void GetGameAccountState(::bgs::protocol::account::v1::GetGameAccountStateRequest const* request, std::function<void(::bgs::protocol::account::v1::GetGameAccountStateResponse const*)> responseCallback);
-  void GetLicenses(::bgs::protocol::account::v1::GetLicensesRequest const* request, std::function<void(::bgs::protocol::account::v1::GetLicensesResponse const*)> responseCallback);
-  void GetGameTimeRemainingInfo(::bgs::protocol::account::v1::GetGameTimeRemainingInfoRequest const* request, std::function<void(::bgs::protocol::account::v1::GetGameTimeRemainingInfoResponse const*)> responseCallback);
-  void GetGameSessionInfo(::bgs::protocol::account::v1::GetGameSessionInfoRequest const* request, std::function<void(::bgs::protocol::account::v1::GetGameSessionInfoResponse const*)> responseCallback);
-  void GetCAISInfo(::bgs::protocol::account::v1::GetCAISInfoRequest const* request, std::function<void(::bgs::protocol::account::v1::GetCAISInfoResponse const*)> responseCallback);
-  void GetAuthorizedData(::bgs::protocol::account::v1::GetAuthorizedDataRequest const* request, std::function<void(::bgs::protocol::account::v1::GetAuthorizedDataResponse const*)> responseCallback);
-  void GetSignedAccountState(::bgs::protocol::account::v1::GetSignedAccountStateRequest const* request, std::function<void(::bgs::protocol::account::v1::GetSignedAccountStateResponse const*)> responseCallback);
-  // server methods --------------------------------------------------
-
-  void CallServerMethod(uint32 token, uint32 methodId, MessageBuffer buffer) override final;
+  void CallServerMethod(uint32 token, uint32 methodId, MessageBuffer buffer) final;
 
  protected:
+  // server methods --------------------------------------------------
   virtual uint32 HandleResolveAccount(::bgs::protocol::account::v1::ResolveAccountRequest const* request, ::bgs::protocol::account::v1::ResolveAccountResponse* response, std::function<void(ServiceBase*, uint32, ::google::protobuf::Message const*)>& continuation);
-  virtual uint32 HandleIsIgrAddress(::bgs::protocol::account::v1::IsIgrAddressRequest const* request, ::bgs::protocol::NoData* response, std::function<void(ServiceBase*, uint32, ::google::protobuf::Message const*)>& continuation);
   virtual uint32 HandleSubscribe(::bgs::protocol::account::v1::SubscriptionUpdateRequest const* request, ::bgs::protocol::account::v1::SubscriptionUpdateResponse* response, std::function<void(ServiceBase*, uint32, ::google::protobuf::Message const*)>& continuation);
   virtual uint32 HandleUnsubscribe(::bgs::protocol::account::v1::SubscriptionUpdateRequest const* request, ::bgs::protocol::NoData* response, std::function<void(ServiceBase*, uint32, ::google::protobuf::Message const*)>& continuation);
   virtual uint32 HandleGetAccountState(::bgs::protocol::account::v1::GetAccountStateRequest const* request, ::bgs::protocol::account::v1::GetAccountStateResponse* response, std::function<void(ServiceBase*, uint32, ::google::protobuf::Message const*)>& continuation);
@@ -2563,11 +2422,23 @@ class TC_PROTO_API AccountService : public ServiceBase
   virtual uint32 HandleGetCAISInfo(::bgs::protocol::account::v1::GetCAISInfoRequest const* request, ::bgs::protocol::account::v1::GetCAISInfoResponse* response, std::function<void(ServiceBase*, uint32, ::google::protobuf::Message const*)>& continuation);
   virtual uint32 HandleGetAuthorizedData(::bgs::protocol::account::v1::GetAuthorizedDataRequest const* request, ::bgs::protocol::account::v1::GetAuthorizedDataResponse* response, std::function<void(ServiceBase*, uint32, ::google::protobuf::Message const*)>& continuation);
   virtual uint32 HandleGetSignedAccountState(::bgs::protocol::account::v1::GetSignedAccountStateRequest const* request, ::bgs::protocol::account::v1::GetSignedAccountStateResponse* response, std::function<void(ServiceBase*, uint32, ::google::protobuf::Message const*)>& continuation);
+  virtual uint32 HandleGetAccountInfo(::bgs::protocol::account::v1::GetAccountInfoRequest const* request, ::bgs::protocol::account::v1::GetAccountInfoResponse* response, std::function<void(ServiceBase*, uint32, ::google::protobuf::Message const*)>& continuation);
+  virtual uint32 HandleGetAccountPlatformRestrictions(::bgs::protocol::account::v1::GetAccountPlatformRestrictionsRequest const* request, ::bgs::protocol::account::v1::GetAccountPlatformRestrictionsResponse* response, std::function<void(ServiceBase*, uint32, ::google::protobuf::Message const*)>& continuation);
 
  private:
-  uint32 service_hash_;
-
-  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(AccountService);
+  void ParseAndHandleResolveAccount(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleSubscribe(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleUnsubscribe(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleGetAccountState(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleGetGameAccountState(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleGetLicenses(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleGetGameTimeRemainingInfo(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleGetGameSessionInfo(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleGetCAISInfo(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleGetAuthorizedData(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleGetSignedAccountState(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleGetAccountInfo(uint32 token, uint32 methodId, MessageBuffer& buffer);
+  void ParseAndHandleGetAccountPlatformRestrictions(uint32 token, uint32 methodId, MessageBuffer& buffer);
 };
 
 // -------------------------------------------------------------------
@@ -2577,6 +2448,10 @@ class TC_PROTO_API AccountListener : public ServiceBase
  public:
 
   explicit AccountListener(bool use_original_hash);
+  AccountListener(AccountListener const&) = delete;
+  AccountListener(AccountListener&&) = delete;
+  AccountListener& operator=(AccountListener const&) = delete;
+  AccountListener& operator=(AccountListener&&) = delete;
   virtual ~AccountListener();
 
   typedef std::integral_constant<uint32, 0x54DFDA17u> OriginalHash;
@@ -2585,29 +2460,15 @@ class TC_PROTO_API AccountListener : public ServiceBase
   static google::protobuf::ServiceDescriptor const* descriptor();
 
   // client methods --------------------------------------------------
+  void OnAccountStateUpdated(::bgs::protocol::account::v1::AccountStateNotification const* request, bool client = false, bool server = false);
+  void OnGameAccountStateUpdated(::bgs::protocol::account::v1::GameAccountStateNotification const* request, bool client = false, bool server = false);
+  void OnGameAccountsUpdated(::bgs::protocol::account::v1::GameAccountNotification const* request, bool client = false, bool server = false);
+  void OnGameSessionUpdated(::bgs::protocol::account::v1::GameAccountSessionNotification const* request, bool client = false, bool server = false);
 
-  void OnAccountStateUpdated(::bgs::protocol::account::v1::AccountStateNotification const* request);
-  void OnGameAccountStateUpdated(::bgs::protocol::account::v1::GameAccountStateNotification const* request);
-  void OnGameAccountsUpdated(::bgs::protocol::account::v1::GameAccountNotification const* request);
-  void OnGameSessionUpdated(::bgs::protocol::account::v1::GameAccountSessionNotification const* request);
-  // server methods --------------------------------------------------
-
-  void CallServerMethod(uint32 token, uint32 methodId, MessageBuffer buffer) override final;
-
- protected:
-  virtual uint32 HandleOnAccountStateUpdated(::bgs::protocol::account::v1::AccountStateNotification const* request);
-  virtual uint32 HandleOnGameAccountStateUpdated(::bgs::protocol::account::v1::GameAccountStateNotification const* request);
-  virtual uint32 HandleOnGameAccountsUpdated(::bgs::protocol::account::v1::GameAccountNotification const* request);
-  virtual uint32 HandleOnGameSessionUpdated(::bgs::protocol::account::v1::GameAccountSessionNotification const* request);
-
- private:
-  uint32 service_hash_;
-
-  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(AccountListener);
+  void CallServerMethod(uint32 token, uint32 methodId, MessageBuffer buffer) final;
 };
 
 // ===================================================================
-
 
 // ===================================================================
 
@@ -2882,110 +2743,6 @@ inline ::google::protobuf::RepeatedPtrField< ::bgs::protocol::account::v1::Subsc
 SubscriptionUpdateResponse::mutable_ref() {
   // @@protoc_insertion_point(field_mutable_list:bgs.protocol.account.v1.SubscriptionUpdateResponse.ref)
   return &ref_;
-}
-
-// -------------------------------------------------------------------
-
-// IsIgrAddressRequest
-
-// optional string client_address = 1;
-inline bool IsIgrAddressRequest::has_client_address() const {
-  return (_has_bits_[0] & 0x00000001u) != 0;
-}
-inline void IsIgrAddressRequest::set_has_client_address() {
-  _has_bits_[0] |= 0x00000001u;
-}
-inline void IsIgrAddressRequest::clear_has_client_address() {
-  _has_bits_[0] &= ~0x00000001u;
-}
-inline void IsIgrAddressRequest::clear_client_address() {
-  if (client_address_ != &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
-    client_address_->clear();
-  }
-  clear_has_client_address();
-}
-inline const ::std::string& IsIgrAddressRequest::client_address() const {
-  // @@protoc_insertion_point(field_get:bgs.protocol.account.v1.IsIgrAddressRequest.client_address)
-  return *client_address_;
-}
-inline void IsIgrAddressRequest::set_client_address(const ::std::string& value) {
-  set_has_client_address();
-  if (client_address_ == &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
-    client_address_ = new ::std::string;
-  }
-  client_address_->assign(value);
-  // @@protoc_insertion_point(field_set:bgs.protocol.account.v1.IsIgrAddressRequest.client_address)
-}
-inline void IsIgrAddressRequest::set_client_address(const char* value) {
-  set_has_client_address();
-  if (client_address_ == &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
-    client_address_ = new ::std::string;
-  }
-  client_address_->assign(value);
-  // @@protoc_insertion_point(field_set_char:bgs.protocol.account.v1.IsIgrAddressRequest.client_address)
-}
-inline void IsIgrAddressRequest::set_client_address(const char* value, size_t size) {
-  set_has_client_address();
-  if (client_address_ == &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
-    client_address_ = new ::std::string;
-  }
-  client_address_->assign(reinterpret_cast<const char*>(value), size);
-  // @@protoc_insertion_point(field_set_pointer:bgs.protocol.account.v1.IsIgrAddressRequest.client_address)
-}
-inline ::std::string* IsIgrAddressRequest::mutable_client_address() {
-  set_has_client_address();
-  if (client_address_ == &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
-    client_address_ = new ::std::string;
-  }
-  // @@protoc_insertion_point(field_mutable:bgs.protocol.account.v1.IsIgrAddressRequest.client_address)
-  return client_address_;
-}
-inline ::std::string* IsIgrAddressRequest::release_client_address() {
-  clear_has_client_address();
-  if (client_address_ == &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
-    return NULL;
-  } else {
-    ::std::string* temp = client_address_;
-    client_address_ = const_cast< ::std::string*>(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-    return temp;
-  }
-}
-inline void IsIgrAddressRequest::set_allocated_client_address(::std::string* client_address) {
-  if (client_address_ != &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
-    delete client_address_;
-  }
-  if (client_address) {
-    set_has_client_address();
-    client_address_ = client_address;
-  } else {
-    clear_has_client_address();
-    client_address_ = const_cast< ::std::string*>(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  }
-  // @@protoc_insertion_point(field_set_allocated:bgs.protocol.account.v1.IsIgrAddressRequest.client_address)
-}
-
-// optional uint32 region = 2;
-inline bool IsIgrAddressRequest::has_region() const {
-  return (_has_bits_[0] & 0x00000002u) != 0;
-}
-inline void IsIgrAddressRequest::set_has_region() {
-  _has_bits_[0] |= 0x00000002u;
-}
-inline void IsIgrAddressRequest::clear_has_region() {
-  _has_bits_[0] &= ~0x00000002u;
-}
-inline void IsIgrAddressRequest::clear_region() {
-  region_ = 0u;
-  clear_has_region();
-}
-inline ::google::protobuf::uint32 IsIgrAddressRequest::region() const {
-  // @@protoc_insertion_point(field_get:bgs.protocol.account.v1.IsIgrAddressRequest.region)
-  return region_;
-}
-inline void IsIgrAddressRequest::set_region(::google::protobuf::uint32 value) {
-  set_has_region();
-  region_ = value;
-  // @@protoc_insertion_point(field_set:bgs.protocol.account.v1.IsIgrAddressRequest.region)
 }
 
 // -------------------------------------------------------------------
@@ -4003,6 +3760,82 @@ inline void GetGameTimeRemainingInfoRequest::set_allocated_account_id(::bgs::pro
   // @@protoc_insertion_point(field_set_allocated:bgs.protocol.account.v1.GetGameTimeRemainingInfoRequest.account_id)
 }
 
+// optional string benefactor_id = 3;
+inline bool GetGameTimeRemainingInfoRequest::has_benefactor_id() const {
+  return (_has_bits_[0] & 0x00000004u) != 0;
+}
+inline void GetGameTimeRemainingInfoRequest::set_has_benefactor_id() {
+  _has_bits_[0] |= 0x00000004u;
+}
+inline void GetGameTimeRemainingInfoRequest::clear_has_benefactor_id() {
+  _has_bits_[0] &= ~0x00000004u;
+}
+inline void GetGameTimeRemainingInfoRequest::clear_benefactor_id() {
+  if (benefactor_id_ != &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
+    benefactor_id_->clear();
+  }
+  clear_has_benefactor_id();
+}
+inline const ::std::string& GetGameTimeRemainingInfoRequest::benefactor_id() const {
+  // @@protoc_insertion_point(field_get:bgs.protocol.account.v1.GetGameTimeRemainingInfoRequest.benefactor_id)
+  return *benefactor_id_;
+}
+inline void GetGameTimeRemainingInfoRequest::set_benefactor_id(const ::std::string& value) {
+  set_has_benefactor_id();
+  if (benefactor_id_ == &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
+    benefactor_id_ = new ::std::string;
+  }
+  benefactor_id_->assign(value);
+  // @@protoc_insertion_point(field_set:bgs.protocol.account.v1.GetGameTimeRemainingInfoRequest.benefactor_id)
+}
+inline void GetGameTimeRemainingInfoRequest::set_benefactor_id(const char* value) {
+  set_has_benefactor_id();
+  if (benefactor_id_ == &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
+    benefactor_id_ = new ::std::string;
+  }
+  benefactor_id_->assign(value);
+  // @@protoc_insertion_point(field_set_char:bgs.protocol.account.v1.GetGameTimeRemainingInfoRequest.benefactor_id)
+}
+inline void GetGameTimeRemainingInfoRequest::set_benefactor_id(const char* value, size_t size) {
+  set_has_benefactor_id();
+  if (benefactor_id_ == &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
+    benefactor_id_ = new ::std::string;
+  }
+  benefactor_id_->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:bgs.protocol.account.v1.GetGameTimeRemainingInfoRequest.benefactor_id)
+}
+inline ::std::string* GetGameTimeRemainingInfoRequest::mutable_benefactor_id() {
+  set_has_benefactor_id();
+  if (benefactor_id_ == &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
+    benefactor_id_ = new ::std::string;
+  }
+  // @@protoc_insertion_point(field_mutable:bgs.protocol.account.v1.GetGameTimeRemainingInfoRequest.benefactor_id)
+  return benefactor_id_;
+}
+inline ::std::string* GetGameTimeRemainingInfoRequest::release_benefactor_id() {
+  clear_has_benefactor_id();
+  if (benefactor_id_ == &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
+    return NULL;
+  } else {
+    ::std::string* temp = benefactor_id_;
+    benefactor_id_ = const_cast< ::std::string*>(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+    return temp;
+  }
+}
+inline void GetGameTimeRemainingInfoRequest::set_allocated_benefactor_id(::std::string* benefactor_id) {
+  if (benefactor_id_ != &::google::protobuf::internal::GetEmptyStringAlreadyInited()) {
+    delete benefactor_id_;
+  }
+  if (benefactor_id) {
+    set_has_benefactor_id();
+    benefactor_id_ = benefactor_id;
+  } else {
+    clear_has_benefactor_id();
+    benefactor_id_ = const_cast< ::std::string*>(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  }
+  // @@protoc_insertion_point(field_set_allocated:bgs.protocol.account.v1.GetGameTimeRemainingInfoRequest.benefactor_id)
+}
+
 // -------------------------------------------------------------------
 
 // GetGameTimeRemainingInfoResponse
@@ -4293,6 +4126,186 @@ inline ::google::protobuf::RepeatedPtrField< ::bgs::protocol::account::v1::Autho
 GetAuthorizedDataResponse::mutable_data() {
   // @@protoc_insertion_point(field_mutable_list:bgs.protocol.account.v1.GetAuthorizedDataResponse.data)
   return &data_;
+}
+
+// -------------------------------------------------------------------
+
+// GetAccountInfoRequest
+
+// optional .bgs.protocol.EntityId account_id = 1;
+inline bool GetAccountInfoRequest::has_account_id() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void GetAccountInfoRequest::set_has_account_id() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void GetAccountInfoRequest::clear_has_account_id() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void GetAccountInfoRequest::clear_account_id() {
+  if (account_id_ != NULL) account_id_->::bgs::protocol::EntityId::Clear();
+  clear_has_account_id();
+}
+inline const ::bgs::protocol::EntityId& GetAccountInfoRequest::account_id() const {
+  // @@protoc_insertion_point(field_get:bgs.protocol.account.v1.GetAccountInfoRequest.account_id)
+  return account_id_ != NULL ? *account_id_ : *default_instance_->account_id_;
+}
+inline ::bgs::protocol::EntityId* GetAccountInfoRequest::mutable_account_id() {
+  set_has_account_id();
+  if (account_id_ == NULL) account_id_ = new ::bgs::protocol::EntityId;
+  // @@protoc_insertion_point(field_mutable:bgs.protocol.account.v1.GetAccountInfoRequest.account_id)
+  return account_id_;
+}
+inline ::bgs::protocol::EntityId* GetAccountInfoRequest::release_account_id() {
+  clear_has_account_id();
+  ::bgs::protocol::EntityId* temp = account_id_;
+  account_id_ = NULL;
+  return temp;
+}
+inline void GetAccountInfoRequest::set_allocated_account_id(::bgs::protocol::EntityId* account_id) {
+  delete account_id_;
+  account_id_ = account_id;
+  if (account_id) {
+    set_has_account_id();
+  } else {
+    clear_has_account_id();
+  }
+  // @@protoc_insertion_point(field_set_allocated:bgs.protocol.account.v1.GetAccountInfoRequest.account_id)
+}
+
+// -------------------------------------------------------------------
+
+// GetAccountInfoResponse
+
+// optional .bgs.protocol.account.v1.AccountInfo account_info = 1;
+inline bool GetAccountInfoResponse::has_account_info() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void GetAccountInfoResponse::set_has_account_info() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void GetAccountInfoResponse::clear_has_account_info() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void GetAccountInfoResponse::clear_account_info() {
+  if (account_info_ != NULL) account_info_->::bgs::protocol::account::v1::AccountInfo::Clear();
+  clear_has_account_info();
+}
+inline const ::bgs::protocol::account::v1::AccountInfo& GetAccountInfoResponse::account_info() const {
+  // @@protoc_insertion_point(field_get:bgs.protocol.account.v1.GetAccountInfoResponse.account_info)
+  return account_info_ != NULL ? *account_info_ : *default_instance_->account_info_;
+}
+inline ::bgs::protocol::account::v1::AccountInfo* GetAccountInfoResponse::mutable_account_info() {
+  set_has_account_info();
+  if (account_info_ == NULL) account_info_ = new ::bgs::protocol::account::v1::AccountInfo;
+  // @@protoc_insertion_point(field_mutable:bgs.protocol.account.v1.GetAccountInfoResponse.account_info)
+  return account_info_;
+}
+inline ::bgs::protocol::account::v1::AccountInfo* GetAccountInfoResponse::release_account_info() {
+  clear_has_account_info();
+  ::bgs::protocol::account::v1::AccountInfo* temp = account_info_;
+  account_info_ = NULL;
+  return temp;
+}
+inline void GetAccountInfoResponse::set_allocated_account_info(::bgs::protocol::account::v1::AccountInfo* account_info) {
+  delete account_info_;
+  account_info_ = account_info;
+  if (account_info) {
+    set_has_account_info();
+  } else {
+    clear_has_account_info();
+  }
+  // @@protoc_insertion_point(field_set_allocated:bgs.protocol.account.v1.GetAccountInfoResponse.account_info)
+}
+
+// -------------------------------------------------------------------
+
+// GetAccountPlatformRestrictionsRequest
+
+// optional .bgs.protocol.EntityId account_id = 1;
+inline bool GetAccountPlatformRestrictionsRequest::has_account_id() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void GetAccountPlatformRestrictionsRequest::set_has_account_id() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void GetAccountPlatformRestrictionsRequest::clear_has_account_id() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void GetAccountPlatformRestrictionsRequest::clear_account_id() {
+  if (account_id_ != NULL) account_id_->::bgs::protocol::EntityId::Clear();
+  clear_has_account_id();
+}
+inline const ::bgs::protocol::EntityId& GetAccountPlatformRestrictionsRequest::account_id() const {
+  // @@protoc_insertion_point(field_get:bgs.protocol.account.v1.GetAccountPlatformRestrictionsRequest.account_id)
+  return account_id_ != NULL ? *account_id_ : *default_instance_->account_id_;
+}
+inline ::bgs::protocol::EntityId* GetAccountPlatformRestrictionsRequest::mutable_account_id() {
+  set_has_account_id();
+  if (account_id_ == NULL) account_id_ = new ::bgs::protocol::EntityId;
+  // @@protoc_insertion_point(field_mutable:bgs.protocol.account.v1.GetAccountPlatformRestrictionsRequest.account_id)
+  return account_id_;
+}
+inline ::bgs::protocol::EntityId* GetAccountPlatformRestrictionsRequest::release_account_id() {
+  clear_has_account_id();
+  ::bgs::protocol::EntityId* temp = account_id_;
+  account_id_ = NULL;
+  return temp;
+}
+inline void GetAccountPlatformRestrictionsRequest::set_allocated_account_id(::bgs::protocol::EntityId* account_id) {
+  delete account_id_;
+  account_id_ = account_id;
+  if (account_id) {
+    set_has_account_id();
+  } else {
+    clear_has_account_id();
+  }
+  // @@protoc_insertion_point(field_set_allocated:bgs.protocol.account.v1.GetAccountPlatformRestrictionsRequest.account_id)
+}
+
+// -------------------------------------------------------------------
+
+// GetAccountPlatformRestrictionsResponse
+
+// optional .bgs.protocol.account.v1.AccountPlatformRestrictionInfo restriction_info = 1;
+inline bool GetAccountPlatformRestrictionsResponse::has_restriction_info() const {
+  return (_has_bits_[0] & 0x00000001u) != 0;
+}
+inline void GetAccountPlatformRestrictionsResponse::set_has_restriction_info() {
+  _has_bits_[0] |= 0x00000001u;
+}
+inline void GetAccountPlatformRestrictionsResponse::clear_has_restriction_info() {
+  _has_bits_[0] &= ~0x00000001u;
+}
+inline void GetAccountPlatformRestrictionsResponse::clear_restriction_info() {
+  if (restriction_info_ != NULL) restriction_info_->::bgs::protocol::account::v1::AccountPlatformRestrictionInfo::Clear();
+  clear_has_restriction_info();
+}
+inline const ::bgs::protocol::account::v1::AccountPlatformRestrictionInfo& GetAccountPlatformRestrictionsResponse::restriction_info() const {
+  // @@protoc_insertion_point(field_get:bgs.protocol.account.v1.GetAccountPlatformRestrictionsResponse.restriction_info)
+  return restriction_info_ != NULL ? *restriction_info_ : *default_instance_->restriction_info_;
+}
+inline ::bgs::protocol::account::v1::AccountPlatformRestrictionInfo* GetAccountPlatformRestrictionsResponse::mutable_restriction_info() {
+  set_has_restriction_info();
+  if (restriction_info_ == NULL) restriction_info_ = new ::bgs::protocol::account::v1::AccountPlatformRestrictionInfo;
+  // @@protoc_insertion_point(field_mutable:bgs.protocol.account.v1.GetAccountPlatformRestrictionsResponse.restriction_info)
+  return restriction_info_;
+}
+inline ::bgs::protocol::account::v1::AccountPlatformRestrictionInfo* GetAccountPlatformRestrictionsResponse::release_restriction_info() {
+  clear_has_restriction_info();
+  ::bgs::protocol::account::v1::AccountPlatformRestrictionInfo* temp = restriction_info_;
+  restriction_info_ = NULL;
+  return temp;
+}
+inline void GetAccountPlatformRestrictionsResponse::set_allocated_restriction_info(::bgs::protocol::account::v1::AccountPlatformRestrictionInfo* restriction_info) {
+  delete restriction_info_;
+  restriction_info_ = restriction_info;
+  if (restriction_info) {
+    set_has_restriction_info();
+  } else {
+    clear_has_restriction_info();
+  }
+  // @@protoc_insertion_point(field_set_allocated:bgs.protocol.account.v1.GetAccountPlatformRestrictionsResponse.restriction_info)
 }
 
 // -------------------------------------------------------------------
@@ -4748,7 +4761,6 @@ inline void GameAccountSessionNotification::set_allocated_session_info(::bgs::pr
   // @@protoc_insertion_point(field_set_allocated:bgs.protocol.account.v1.GameAccountSessionNotification.session_info)
 }
 
-
 // @@protoc_insertion_point(namespace_scope)
 
 }  // namespace v1
@@ -4759,8 +4771,6 @@ inline void GameAccountSessionNotification::set_allocated_session_info(::bgs::pr
 #ifndef SWIG
 namespace google {
 namespace protobuf {
-
-
 }  // namespace google
 }  // namespace protobuf
 #endif  // SWIG

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -16,17 +16,25 @@
  */
 
 #include "BattlegroundScore.h"
+#include "BattlegroundMgr.h"
 #include "Errors.h"
+#include "Log.h"
+#include "ObjectAccessor.h"
+#include "Player.h"
 #include "SharedDefines.h"
 
-BattlegroundScore::BattlegroundScore(ObjectGuid playerGuid, uint32 team) : PlayerGuid(playerGuid), TeamId(team == ALLIANCE ? BG_TEAM_ALLIANCE : BG_TEAM_HORDE),
-    KillingBlows(0), Deaths(0), HonorableKills(0), BonusHonor(0), DamageDone(0), HealingDone(0)
+#include <sstream>
+
+BattlegroundScore::BattlegroundScore(ObjectGuid playerGuid, uint32 team, std::unordered_set<uint32> const* pvpStatIds) : PlayerGuid(playerGuid), TeamId(team == ALLIANCE ? PVP_TEAM_ALLIANCE : PVP_TEAM_HORDE),
+    KillingBlows(0), Deaths(0), HonorableKills(0), BonusHonor(0), DamageDone(0), HealingDone(0),
+    PreMatchRating(0), PreMatchMMR(0), PostMatchRating(0), PostMatchMMR(0), _validPvpStatIds(pvpStatIds)
 {
+    if (_validPvpStatIds)
+        for (uint32 pvpStatId : *_validPvpStatIds)
+            PvpStats[pvpStatId] = 0;
 }
 
-BattlegroundScore::~BattlegroundScore()
-{
-}
+BattlegroundScore::~BattlegroundScore() = default;
 
 void BattlegroundScore::UpdateScore(uint32 type, uint32 value)
 {
@@ -51,19 +59,44 @@ void BattlegroundScore::UpdateScore(uint32 type, uint32 value)
             HealingDone += value;
             break;
         default:
-            ASSERT(false, "Not implemented Battleground score type %u!", type);
+            ABORT_MSG("Not implemented Battleground score type %u!", type);
             break;
     }
 }
 
-void BattlegroundScore::BuildPvPLogPlayerDataPacket(WorldPackets::Battleground::PVPLogData::PVPMatchPlayerStatistics& playerData) const
+void BattlegroundScore::UpdatePvpStat(uint32 pvpStatID, uint32 value)
+{
+    if (!_validPvpStatIds)
+        return;
+
+    if (!_validPvpStatIds->contains(pvpStatID))
+    {
+        TC_LOG_WARN("bg.scores", "Tried updating PvpStat {} but this stat is not allowed on this map", pvpStatID);
+        return;
+    }
+
+    PvpStats[pvpStatID] += value;
+    if (Player* player = ObjectAccessor::FindConnectedPlayer(PlayerGuid))
+        player->UpdateCriteria(CriteriaType::TrackedWorldStateUIModified, pvpStatID);
+}
+
+uint32 BattlegroundScore::GetAttr(uint8 index) const
+{
+    auto const& itr = std::next(PvpStats.begin(), index);
+    if (itr == PvpStats.end())
+        return 0;
+
+    return itr->second;
+}
+
+void BattlegroundScore::BuildPvPLogPlayerDataPacket(WorldPackets::Battleground::PVPMatchStatistics::PVPMatchPlayerStatistics& playerData) const
 {
     playerData.PlayerGUID = PlayerGuid;
     playerData.Kills = KillingBlows;
     playerData.Faction = TeamId;
     if (HonorableKills || Deaths || BonusHonor)
     {
-        playerData.Honor = boost::in_place();
+        playerData.Honor.emplace();
         playerData.Honor->HonorKills = HonorableKills;
         playerData.Honor->Deaths = Deaths;
         playerData.Honor->ContributionPoints = BonusHonor;
@@ -71,4 +104,28 @@ void BattlegroundScore::BuildPvPLogPlayerDataPacket(WorldPackets::Battleground::
 
     playerData.DamageDone = DamageDone;
     playerData.HealingDone = HealingDone;
+
+    if (PreMatchRating)
+        playerData.PreMatchRating = PreMatchRating;
+
+    if (PostMatchRating != PreMatchRating)
+        playerData.RatingChange = int32(PostMatchRating) - PreMatchRating;
+
+    if (PreMatchMMR)
+        playerData.PreMatchMMR = PreMatchMMR;
+
+    if (PostMatchMMR != PreMatchMMR)
+        playerData.MmrChange = int32(PostMatchMMR) - PreMatchMMR;
+
+    for (const auto& [pvpStatID, value] : PvpStats)
+        playerData.Stats.emplace_back(pvpStatID, value);
+}
+
+std::string BattlegroundScore::ToString() const
+{
+    std::ostringstream stream;
+    stream << "Damage done: " << DamageDone << ", Healing done: " << HealingDone << ", Killing blows: " << KillingBlows
+        << ", PreMatchRating: " << PreMatchRating << ", PreMatchMMR: " << PreMatchMMR
+        << ", PostMatchRating: " << PostMatchRating << ", PostMatchMMR: " << PostMatchMMR;
+    return stream.str();
 }

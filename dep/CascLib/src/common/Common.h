@@ -59,18 +59,19 @@ typedef struct _CASC_EKEY_ENTRY
 // in the storage. Note that the file may be present under several file names.
 
 // Flags for CASC_CKEY_ENTRY::Flags
-#define CASC_CE_FILE_IS_LOCAL      0x00000001       // The file is available locally. Keep this flag to have value of 1
-#define CASC_CE_HAS_CKEY           0x00000002       // The CKey is present in the entry
-#define CASC_CE_HAS_EKEY           0x00000004       // The EKey is present, at least partial one
-#define CASC_CE_HAS_EKEY_PARTIAL   0x00000008       // The EKey is only partial, padded by zeros. Always used with CASC_CE_HAS_EKEY
-#define CASC_CE_IN_ENCODING        0x00000010       // Present in the ENCODING manifest
-#define CASC_CE_IN_DOWNLOAD        0x00000020       // Present in the DOWNLOAD manifest
-#define CASC_CE_IN_BUILD           0x00000040       // Present in the BUILD (text) manifest
-#define CASC_CE_IN_ARCHIVE         0x00000080       // File is stored in an archive (for online storages)
-#define CASC_CE_FOLDER_ENTRY       0x00000100       // This CKey entry is a folder
-#define CASC_CE_FILE_SPAN          0x00000200       // This CKey entry is a follow-up file span
-#define CASC_CE_FILE_PATCH         0x00000400       // The file is in PATCH subfolder in remote storage
-#define CASC_CE_PLAIN_DATA         0x00000800       // The file data is not BLTE encoded, but in plain format
+#define CASC_CE_FILE_IS_LOCAL      0x0001           // The file is available locally. Keep this flag to have value of 1
+#define CASC_CE_HAS_CKEY           0x0002           // The CKey is present in the entry
+#define CASC_CE_HAS_EKEY           0x0004           // The EKey is present, at least partial one
+#define CASC_CE_HAS_EKEY_PARTIAL   0x0008           // The EKey is only partial, padded by zeros. Always used with CASC_CE_HAS_EKEY
+#define CASC_CE_IN_ENCODING        0x0010           // Present in the ENCODING manifest
+#define CASC_CE_IN_DOWNLOAD        0x0020           // Present in the DOWNLOAD manifest
+#define CASC_CE_IN_BUILD           0x0040           // Present in the BUILD (text) manifest
+#define CASC_CE_IN_ARCHIVE         0x0080           // File is stored in an archive (for online storages)
+#define CASC_CE_FOLDER_ENTRY       0x0100           // This CKey entry is a folder
+#define CASC_CE_FILE_SPAN          0x0200           // This CKey entry is a follow-up file span
+#define CASC_CE_FILE_PATCH         0x0400           // The file is in PATCH subfolder in remote storage
+#define CASC_CE_PLAIN_DATA         0x0800           // The file data is not BLTE encoded, but in plain format
+#define CASC_CE_OPEN_CKEY_ONCE     0x1000           // Used by CascLib test program - only opens a file with given CKey once, regardless on how many file names does it have
 
 // In-memory representation of a single entry. 
 struct CASC_CKEY_ENTRY
@@ -112,10 +113,10 @@ struct CASC_CKEY_ENTRY
     ULONGLONG TagBitMask;                           // Bitmap for the tags. 0 ig tags are not supported
     DWORD ContentSize;                              // Content size of the file
     DWORD EncodedSize;                              // Encoded size of the file
-    DWORD Flags;                                    // See CASC_CE_XXX
-    USHORT RefCount;                                // This is the number of file names referencing this entry
+    DWORD RefCount;                                 // This is the number of file names referencing this entry
+    USHORT Flags;                                   // See CASC_CE_XXX
     BYTE SpanCount;                                 // Number of spans for the file
-    BYTE Priority;                                  // Download priority
+    BYTE Priority;                                  // Number of spans for the file
 };
 typedef CASC_CKEY_ENTRY *PCASC_CKEY_ENTRY;
 
@@ -124,6 +125,7 @@ typedef CASC_CKEY_ENTRY *PCASC_CKEY_ENTRY;
 
 extern unsigned char AsciiToLowerTable_Slash[256];
 extern unsigned char AsciiToUpperTable_BkSlash[256];
+extern unsigned char AsciiToHexTable[128];
 extern unsigned char IntToHexChar[];
 
 //-----------------------------------------------------------------------------
@@ -139,7 +141,13 @@ extern unsigned char IntToHexChar[];
 //  - Memory freeing function must check for NULL pointer and do nothing if so
 //
 
-#define CASC_REALLOC(type, ptr, count) (type *)realloc(ptr, (count) * sizeof(type))
+template <typename T>
+T * CASC_REALLOC(T * old_ptr, size_t count)
+{
+    // Note: If realloc fails, then the old buffer remains unfreed!
+    // The caller needs to handle this
+    return (T *)realloc(old_ptr, count * sizeof(T));
+}
 
 template <typename T>
 T * CASC_ALLOC(size_t nCount)
@@ -166,9 +174,17 @@ void CASC_FREE(T *& ptr)
 }
 
 //-----------------------------------------------------------------------------
+// 32-bit ROL
+
+inline DWORD Rol32(DWORD dwValue, DWORD dwRolCount)
+{
+    return (dwValue << dwRolCount) | (dwValue >> (32 - dwRolCount));
+}
+
+//-----------------------------------------------------------------------------
 // Big endian number manipulation
 
-inline DWORD ConvertBytesToInteger_2(LPBYTE ValueAsBytes)
+inline USHORT ConvertBytesToInteger_2(LPBYTE ValueAsBytes)
 {
     USHORT Value = 0;
 
@@ -246,18 +262,18 @@ inline ULONGLONG ConvertBytesToInteger_5(LPBYTE ValueAsBytes)
 
 inline void ConvertIntegerToBytes_4(DWORD Value, LPBYTE ValueAsBytes)
 {
-    ValueAsBytes[0] = (Value >> 0x18) & 0xFF;
-    ValueAsBytes[1] = (Value >> 0x10) & 0xFF;
-    ValueAsBytes[2] = (Value >> 0x08) & 0xFF;
-    ValueAsBytes[3] = (Value >> 0x00) & 0xFF;
+    ValueAsBytes[0] = (BYTE)((Value >> 0x18) & 0xFF);
+    ValueAsBytes[1] = (BYTE)((Value >> 0x10) & 0xFF);
+    ValueAsBytes[2] = (BYTE)((Value >> 0x08) & 0xFF);
+    ValueAsBytes[3] = (BYTE)((Value >> 0x00) & 0xFF);
 }
 
 inline void ConvertIntegerToBytes_4_LE(DWORD Value, LPBYTE ValueAsBytes)
 {
-    ValueAsBytes[0] = (Value >> 0x00) & 0xFF;
-    ValueAsBytes[1] = (Value >> 0x08) & 0xFF;
-    ValueAsBytes[2] = (Value >> 0x10) & 0xFF;
-    ValueAsBytes[3] = (Value >> 0x18) & 0xFF;
+    ValueAsBytes[0] = (BYTE)((Value >> 0x00) & 0xFF);
+    ValueAsBytes[1] = (BYTE)((Value >> 0x08) & 0xFF);
+    ValueAsBytes[2] = (BYTE)((Value >> 0x10) & 0xFF);
+    ValueAsBytes[3] = (BYTE)((Value >> 0x18) & 0xFF);
 }
 
 // Faster than memset(Buffer, 0, 0x10)
@@ -292,9 +308,43 @@ LPBYTE CaptureInteger32_BE(LPBYTE pbDataPtr, LPBYTE pbDataEnd, PDWORD PtrValue);
 LPBYTE CaptureByteArray(LPBYTE pbDataPtr, LPBYTE pbDataEnd, size_t nLength, LPBYTE pbOutput);
 LPBYTE CaptureContentKey(LPBYTE pbDataPtr, LPBYTE pbDataEnd, PCONTENT_KEY * PtrCKey);
 LPBYTE CaptureEncodedKey(LPBYTE pbEKey, LPBYTE pbData, BYTE EKeyLength);
-LPBYTE CaptureArray_(LPBYTE pbDataPtr, LPBYTE pbDataEnd, LPBYTE * PtrArray, size_t ItemSize, size_t ItemCount);
 
-#define CaptureArray(pbDataPtr, pbDataEnd, PtrArray, type, count) CaptureArray_(pbDataPtr, pbDataEnd, PtrArray, sizeof(type), count) 
+template <typename STRUCTURE>
+LPBYTE CaptureStructure(LPBYTE pbDataPtr, LPBYTE pbDataEnd, STRUCTURE ** lpStructure)
+{
+    if((pbDataPtr + sizeof(STRUCTURE)) <= pbDataEnd)
+    {
+        lpStructure[0] = (STRUCTURE *)(pbDataPtr);
+        return pbDataPtr + sizeof(STRUCTURE);
+    }
+    return NULL;
+}
+
+template <typename STRUCTURE>
+LPBYTE CaptureArray(LPBYTE pbDataPtr, LPBYTE pbDataEnd, STRUCTURE ** PtrArray, size_t nCount)
+{
+    size_t nTotalSize = nCount * sizeof(STRUCTURE);
+
+    if((pbDataPtr + nTotalSize) <= pbDataEnd)
+    {
+        PtrArray[0] = (STRUCTURE *)(pbDataPtr);
+        return pbDataPtr + nTotalSize;
+    }
+    return NULL;
+}
+
+template <typename STRUCTURE>
+LPBYTE CaptureArrayAsByte(LPBYTE pbDataPtr, LPBYTE pbDataEnd, LPBYTE * PtrArray, size_t nCount)
+{
+    size_t nTotalSize = nCount * sizeof(STRUCTURE);
+
+    if((pbDataPtr + nTotalSize) <= pbDataEnd)
+    {
+        PtrArray[0] = (LPBYTE)(pbDataPtr);
+        return pbDataPtr + nTotalSize;
+    }
+    return NULL;
+}
 
 //-----------------------------------------------------------------------------
 // String copying and conversion
@@ -307,20 +357,19 @@ void CascStrCopy(wchar_t * szTarget, size_t cchTarget, const wchar_t * szSource,
 //-----------------------------------------------------------------------------
 // Safe version of s(w)printf
 
+size_t CascStrPrintfV(char * buffer, size_t nCount, const char * format, va_list argList);
 size_t CascStrPrintf(char * buffer, size_t nCount, const char * format, ...);
+size_t CascStrPrintfV(wchar_t * buffer, size_t nCount, const wchar_t * format, va_list argList);
 size_t CascStrPrintf(wchar_t * buffer, size_t nCount, const wchar_t * format, ...);
 
 //-----------------------------------------------------------------------------
 // String allocation
 
-char * CascNewStr(const char * szString, size_t nCharsToReserve = 0);
+char    * CascNewStr(const char * szString, size_t nCharsToReserve = 0);
 wchar_t * CascNewStr(const wchar_t * szString, size_t nCharsToReserve = 0);
 
-size_t CombinePath(LPTSTR szBuffer, size_t nMaxChars, char chSeparator, va_list argList);
-size_t CombinePath(LPTSTR szBuffer, size_t nMaxChars, char chSeparator, ...);
-LPTSTR CombinePath(LPCTSTR szPath, LPCTSTR szSubDir);
-LPTSTR GetLastPathPart(LPTSTR szWorkPath);
-bool CutLastPathPart(TCHAR * szWorkPath);
+LPSTR  CascNewStrT2A(LPCTSTR szString, size_t nCharsToReserve = 0);
+LPTSTR CascNewStrA2T(LPCSTR szString, size_t nCharsToReserve = 0);
 
 size_t NormalizeFileName_UpperBkSlash(char * szNormName, const char * szFileName, size_t cchMaxChars);
 size_t NormalizeFileName_LowerSlash(char * szNormName, const char * szFileName, size_t cchMaxChars);
@@ -328,15 +377,88 @@ size_t NormalizeFileName_LowerSlash(char * szNormName, const char * szFileName, 
 ULONGLONG CalcNormNameHash(const char * szNormName, size_t nLength);
 ULONGLONG CalcFileNameHash(const char * szFileName);
 
-int ConvertDigitToInt32(const TCHAR * szString, PDWORD PtrValue);
-int ConvertStringToInt08(const char * szString, PDWORD PtrValue);
-int ConvertStringToInt32(const TCHAR * szString, size_t nMaxDigits, PDWORD PtrValue);
-int ConvertStringToBinary(const char * szString, size_t nMaxDigits, LPBYTE pbBinary);
-
 //-----------------------------------------------------------------------------
-// Conversion from binary array to string. The caller must ensure that
-// the buffer has at least ((cbBinary * 2) + 1) characters
+// String conversion functions
 
+template <typename xchar>
+bool IsHexadecimalDigit(xchar ch)
+{
+    return ((ch < sizeof(AsciiToHexTable)) && (AsciiToHexTable[ch] != 0xFF));
+}
+
+template <typename xchar, typename INTXX>
+DWORD ConvertStringToInt(const xchar * szString, size_t nMaxDigits, INTXX & RefValue, const xchar ** PtrStringEnd = NULL)
+{
+    INTXX MaxValueMask = (INTXX)0x0F << ((sizeof(INTXX) * 8) - 4);
+    INTXX Accumulator = 0;
+    BYTE DigitOne;
+
+    // Set default value
+    if(nMaxDigits == 0)
+        nMaxDigits = sizeof(INTXX) * 2;
+
+    // Convert the string up to the number of digits
+    for(size_t i = 0; i < nMaxDigits; i++, szString++)
+    {
+        // Check for the end of the string
+        if(szString[0] > sizeof(AsciiToHexTable))
+            return ERROR_BAD_FORMAT;
+        if(szString[0] <= 0x20)
+            break;
+
+        // Extract the next digit
+        DigitOne = AsciiToHexTable[szString[0]];
+        if(DigitOne == 0xFF)
+            return ERROR_BAD_FORMAT;
+
+        // Check overflow. If OK, shift the value by 4 to the left
+        if(Accumulator & MaxValueMask)
+            return ERROR_ARITHMETIC_OVERFLOW;
+        Accumulator = (Accumulator << 4) | DigitOne;
+    }
+
+    // Give the results
+    if(PtrStringEnd != NULL)
+        PtrStringEnd[0] = szString;
+    RefValue = Accumulator;
+    return ERROR_SUCCESS;
+}
+
+// Converts string blob to binary blob
+template <typename xchar>
+DWORD BinaryFromString(const xchar * szString, size_t nMaxDigits, LPBYTE pbBinary)
+{
+    const xchar * szStringEnd = szString + nMaxDigits;
+    DWORD dwCounter = 0;
+    BYTE DigitValue;
+    BYTE ByteValue = 0;
+
+    // Convert the string
+    while(szString < szStringEnd)
+    {
+        // Retrieve the digit converted to hexa
+        DigitValue = (BYTE)(AsciiToUpperTable_BkSlash[szString[0]] - '0');
+        if(DigitValue > 9)
+            DigitValue -= 'A' - '9' - 1;
+        if(DigitValue > 0x0F)
+            return ERROR_BAD_FORMAT;
+
+        // Insert the digit to the binary buffer
+        ByteValue = (ByteValue << 0x04) | DigitValue;
+        dwCounter++;
+
+        // If we reached the second digit, it means that we need
+        // to flush the byte value and move on
+        if((dwCounter & 0x01) == 0)
+            *pbBinary++ = ByteValue;
+        szString++;
+    }
+
+    return ERROR_SUCCESS;
+}
+
+// Converts binary array to string.
+// The caller must ensure that the buffer has at least ((cbBinary * 2) + 1) characters
 template <typename xchar>
 xchar * StringFromBinary(LPBYTE pbBinary, size_t cbBinary, xchar * szBuffer)
 {
@@ -359,26 +481,77 @@ xchar * StringFromBinary(LPBYTE pbBinary, size_t cbBinary, xchar * szBuffer)
 }
 
 //-----------------------------------------------------------------------------
-// Structure query key
+// Structures for data blobs
 
-struct QUERY_KEY
+struct CASC_BLOB
 {
-    QUERY_KEY()
+    CASC_BLOB()
+    {
+        Reset();
+    }
+
+    ~CASC_BLOB()
+    {
+        Free();
+    }
+
+    void MoveFrom(CASC_BLOB & Source)
+    {
+        // Free current data, if any
+        Free();
+
+        // Take the source data
+        pbData = Source.pbData;
+        cbData = Source.cbData;
+
+        // Reset the source data without freeing
+        Source.Reset();
+    }
+
+    DWORD SetData(const void * pv, size_t cb)
+    {
+        if(SetSize(cb) != ERROR_SUCCESS)
+            return ERROR_NOT_ENOUGH_MEMORY;
+
+        memcpy(pbData, pv, cb);
+        return ERROR_SUCCESS;
+    }
+
+    DWORD SetSize(size_t cb)
+    {
+        Free();
+
+        // Always leave one extra byte for NUL character
+        if((pbData = CASC_ALLOC<BYTE>(cb + 1)) == NULL)
+            return ERROR_NOT_ENOUGH_MEMORY;
+
+        cbData = cb;
+        return ERROR_SUCCESS;
+    }
+
+    void Reset()
     {
         pbData = NULL;
         cbData = 0;
     }
 
-    ~QUERY_KEY()
+    void Free()
     {
-        CASC_FREE(pbData);
+        if(pbData != NULL)
+            CASC_FREE(pbData);
+        pbData = NULL;
         cbData = 0;
+    }
+
+    LPBYTE End() const
+    {
+        return pbData + cbData;
     }
 
     LPBYTE pbData;
     size_t cbData;
 };
-typedef QUERY_KEY *PQUERY_KEY;
+typedef CASC_BLOB *PCASC_BLOB;
 
 //-----------------------------------------------------------------------------
 // File name utilities
@@ -429,26 +602,10 @@ bool CascCheckWildCard(const char * szString, const char * szWildCard);
 //-----------------------------------------------------------------------------
 // Hashing functions
 
-ULONGLONG HashStringJenkins(const char * szFileName);
-
 bool CascIsValidMD5(LPBYTE pbMd5);
-void CascCalculateDataBlockHash(void * pvDataBlock, DWORD cbDataBlock, LPBYTE md5_hash);
-bool CascVerifyDataBlockHash(void * pvDataBlock, DWORD cbDataBlock, LPBYTE expected_md5);
-
-//-----------------------------------------------------------------------------
-// Scanning a directory
-
-typedef bool (*INDEX_FILE_FOUND)(const TCHAR * szFileName, PDWORD IndexArray, PDWORD OldIndexArray, void * pvContext);
-
-bool DirectoryExists(const TCHAR * szDirectory);
-
-int ScanIndexDirectory(
-    const TCHAR * szIndexPath,
-    INDEX_FILE_FOUND pfnOnFileFound,
-    PDWORD IndexArray,
-    PDWORD OldIndexArray,
-    void * pvContext
-    );
+void CascHash_MD5(const void * pvDataBlock, size_t cbDataBlock, LPBYTE md5_hash);
+void CascHash_SHA1(const void * pvDataBlock, size_t cbDataBlock, LPBYTE sha1_hash);
+bool CascVerifyDataBlockHash(void * pvDataBlock, size_t cbDataBlock, LPBYTE expected_md5);
 
 //-----------------------------------------------------------------------------
 // Argument structure versioning

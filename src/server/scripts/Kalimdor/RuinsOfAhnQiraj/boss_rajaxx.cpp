@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,9 +15,10 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptMgr.h"
 #include "ruins_of_ahnqiraj.h"
 #include "ScriptedCreature.h"
+#include "ScriptMgr.h"
+#include "SpellScript.h"
 
 enum Yells
 {
@@ -76,19 +77,8 @@ class boss_rajaxx : public CreatureScript
             {
                 _Reset();
                 Initialize();
-                events.ScheduleEvent(EVENT_DISARM, 10000);
-                events.ScheduleEvent(EVENT_THUNDERCRASH, 12000);
-            }
-
-            void JustDied(Unit* /*killer*/) override
-            {
-                //SAY_DEATH
-                _JustDied();
-            }
-
-            void EnterCombat(Unit* /*victim*/) override
-            {
-                _EnterCombat();
+                events.ScheduleEvent(EVENT_DISARM, 10s);
+                events.ScheduleEvent(EVENT_THUNDERCRASH, 12s);
             }
 
             void UpdateAI(uint32 diff) override
@@ -107,11 +97,11 @@ class boss_rajaxx : public CreatureScript
                     {
                         case EVENT_DISARM:
                             DoCastVictim(SPELL_DISARM);
-                            events.ScheduleEvent(EVENT_DISARM, 22000);
+                            events.ScheduleEvent(EVENT_DISARM, 22s);
                             break;
                         case EVENT_THUNDERCRASH:
                             DoCast(me, SPELL_THUNDERCRASH);
-                            events.ScheduleEvent(EVENT_THUNDERCRASH, 21000);
+                            events.ScheduleEvent(EVENT_THUNDERCRASH, 21s);
                             break;
                         default:
                             break;
@@ -120,8 +110,6 @@ class boss_rajaxx : public CreatureScript
                     if (me->HasUnitState(UNIT_STATE_CASTING))
                         return;
                 }
-
-                DoMeleeAttackIfReady();
             }
             private:
                 bool enraged;
@@ -133,7 +121,22 @@ class boss_rajaxx : public CreatureScript
         }
 };
 
+// 25599 - Thundercrash
+class spell_rajaxx_thundercrash : public SpellScript
+{
+    static void HandleDamageCalc(Unit const* victim, int32& damage, int32& /*flatMod*/, float& /*pctMod*/)
+    {
+        damage = victim->CountPctFromCurHealth(50);
+    }
+
+    void Register() override
+    {
+        CalcDamage += SpellCalcDamageFn(spell_rajaxx_thundercrash::HandleDamageCalc);
+    }
+};
+
 void AddSC_boss_rajaxx()
 {
     new boss_rajaxx();
+    RegisterSpellScript(spell_rajaxx_thundercrash);
 }

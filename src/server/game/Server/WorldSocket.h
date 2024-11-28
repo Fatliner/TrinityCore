@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,24 +18,45 @@
 #ifndef __WORLDSOCKET_H__
 #define __WORLDSOCKET_H__
 
-#include "Common.h"
-#include "BigNumber.h"
+#include "AsyncCallbackProcessor.h"
+#include "AuthDefines.h"
 #include "DatabaseEnvFwd.h"
 #include "MessageBuffer.h"
-#include "QueryCallbackProcessor.h"
 #include "Socket.h"
+#include "WorldPacket.h"
 #include "WorldPacketCrypt.h"
 #include "MPSCQueue.h"
-#include <chrono>
-#include <functional>
+#include <array>
+#include <boost/asio/ip/tcp.hpp>
 #include <mutex>
+
+namespace JSON::RealmList
+{
+class RealmJoinTicket;
+}
 
 typedef struct z_stream_s z_stream;
 class EncryptablePacket;
 class WorldPacket;
 class WorldSession;
 enum ConnectionType : int8;
-enum OpcodeClient : uint16;
+enum OpcodeClient : uint32;
+
+class EncryptablePacket : public WorldPacket
+{
+public:
+    EncryptablePacket(WorldPacket const& packet, bool encrypt) : WorldPacket(packet), _encrypt(encrypt)
+    {
+        SocketQueueLink.store(nullptr, std::memory_order_relaxed);
+    }
+
+    bool NeedsEncryption() const { return _encrypt; }
+
+    std::atomic<EncryptablePacket*> SocketQueueLink;
+
+private:
+    bool _encrypt;
+};
 
 namespace WorldPackets
 {
@@ -58,6 +78,11 @@ struct PacketHeader
     uint8 Tag[12];
 
     bool IsValidSize() { return Size < 0x10000; }
+};
+
+struct IncomingPacketHeader : PacketHeader
+{
+    uint32 EncryptedOpcode;
 };
 
 #pragma pack(pop)
@@ -108,7 +133,7 @@ protected:
     ReadDataHandlerResult ReadDataHandler();
 private:
     void CheckIpCallback(PreparedQueryResult result);
-    void InitializeHandler(boost::system::error_code error, std::size_t transferedBytes);
+    void InitializeHandler(boost::system::error_code const& error, std::size_t transferedBytes);
 
     /// writes network.opcode log
     /// accessing WorldSession is not threadsafe, only do it when holding _worldSessionLock
@@ -120,32 +145,34 @@ private:
 
     void HandleSendAuthSession();
     void HandleAuthSession(std::shared_ptr<WorldPackets::Auth::AuthSession> authSession);
-    void HandleAuthSessionCallback(std::shared_ptr<WorldPackets::Auth::AuthSession> authSession, PreparedQueryResult result);
+    void HandleAuthSessionCallback(std::shared_ptr<WorldPackets::Auth::AuthSession> authSession,
+        std::shared_ptr<JSON::RealmList::RealmJoinTicket> joinTicket, PreparedQueryResult result);
     void HandleAuthContinuedSession(std::shared_ptr<WorldPackets::Auth::AuthContinuedSession> authSession);
     void HandleAuthContinuedSessionCallback(std::shared_ptr<WorldPackets::Auth::AuthContinuedSession> authSession, PreparedQueryResult result);
     void LoadSessionPermissionsCallback(PreparedQueryResult result);
     void HandleConnectToFailed(WorldPackets::Auth::ConnectToFailed& connectToFailed);
     bool HandlePing(WorldPackets::Auth::Ping& ping);
-    void HandleEnableEncryptionAck();
+    void HandleEnterEncryptedModeAck();
 
     ConnectionType _type;
     uint64 _key;
 
-    BigNumber _serverChallenge;
+    std::array<uint8, 16> _serverChallenge;
     WorldPacketCrypt _authCrypt;
-    BigNumber _sessionKey;
-    uint8 _encryptKey[16];
+    SessionKey _sessionKey;
+    std::array<uint8, 16> _encryptKey;
 
-    std::chrono::steady_clock::time_point _LastPingTime;
+    TimePoint _LastPingTime;
     uint32 _OverSpeedPings;
 
     std::mutex _worldSessionLock;
     WorldSession* _worldSession;
     bool _authed;
+    bool _canRequestHotfixes;
 
     MessageBuffer _headerBuffer;
     MessageBuffer _packetBuffer;
-    MPSCQueue<EncryptablePacket> _bufferQueue;
+    MPSCQueue<EncryptablePacket, &EncryptablePacket::SocketQueueLink> _bufferQueue;
     std::size_t _sendBufferSize;
 
     z_stream* _compressionStream;

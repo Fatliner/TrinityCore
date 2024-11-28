@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,9 +19,9 @@
 #define GOPackets_h__
 
 #include "Packet.h"
-#include "DB2Stores.h"
 #include "GameObject.h"
-#include "WorldSession.h"
+
+enum class PlayerInteractionType : int32;
 
 namespace WorldPackets
 {
@@ -121,15 +121,48 @@ namespace WorldPackets
             bool PlayAsDespawn = false;
         };
 
-        class GameObjectUIAction final : public ServerPacket
+        class GameObjectPlaySpellVisual final : public ServerPacket
         {
         public:
-            GameObjectUIAction() : ServerPacket(SMSG_GAME_OBJECT_UI_ACTION, 16 + 4) { }
+            GameObjectPlaySpellVisual() : ServerPacket(SMSG_GAME_OBJECT_PLAY_SPELL_VISUAL, 16 + 16 + 4) { }
 
             WorldPacket const* Write() override;
 
             ObjectGuid ObjectGUID;
-            int32 UILink = 0;
+            ObjectGuid ActivatorGUID;
+            int32 SpellVisualID = 0;
+        };
+
+        class GameObjectSetStateLocal final : public ServerPacket
+        {
+        public:
+            GameObjectSetStateLocal() : ServerPacket(SMSG_GAME_OBJECT_SET_STATE_LOCAL, 16 + 1) { }
+
+            WorldPacket const* Write() override;
+
+            ObjectGuid ObjectGUID;
+            uint8 State = 0;
+        };
+
+        class GameObjectInteraction final : public ServerPacket
+        {
+        public:
+            GameObjectInteraction() : ServerPacket(SMSG_GAME_OBJECT_INTERACTION, 16 + 4) { }
+
+            WorldPacket const* Write() override;
+
+            ObjectGuid ObjectGUID;
+            PlayerInteractionType InteractionType = {};
+        };
+
+        class GameObjectCloseInteraction final : public ServerPacket
+        {
+        public:
+            GameObjectCloseInteraction() : ServerPacket(SMSG_GAME_OBJECT_CLOSE_INTERACTION, 4) { }
+
+            WorldPacket const* Write() override;
+
+            PlayerInteractionType InteractionType = {};
         };
     }
 }

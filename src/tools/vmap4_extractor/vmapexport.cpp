@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -23,13 +22,17 @@
 #include "DB2CascFileSource.h"
 #include "ExtractorDB2LoadInfo.h"
 #include "StringFormat.h"
+#include "VMapDefinitions.h"
 #include "vmapexport.h"
+#include "Locales.h"
+#include "Util.h"
 #include "wdtfile.h"
 #include "wmo.h"
+#include <algorithm>
 #include <CascLib.h>
+#include <boost/filesystem/directory.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <fstream>
-#include <iostream>
 #include <list>
 #include <map>
 #include <unordered_map>
@@ -37,40 +40,33 @@
 #include <vector>
 #include <cstdio>
 #include <cerrno>
-#include <sys/stat.h>
-
-#ifdef WIN32
-    #include <direct.h>
-    #define mkdir _mkdir
-#endif
-
-//------------------------------------------------------------------------------
-// Defines
-
-#define MPQ_BLOCK_SIZE 0x1000
 
 //-----------------------------------------------------------------------------
 
-CASC::StorageHandle CascStorage;
+std::shared_ptr<CASC::Storage> CascStorage;
 
 struct MapEntry
 {
+    uint32 Id = 0;
     int32 WdtFileDataId = 0;
     int16 ParentMapID = 0;
     std::string Name;
     std::string Directory;
 };
 
-std::map<uint32, MapEntry> map_ids;
+std::vector<MapEntry> map_ids; // partitioned by parent maps first
 std::unordered_set<uint32> maps_that_are_parents;
 boost::filesystem::path input_path;
 bool preciseVectorData = false;
 char const* CascProduct = "wow";
+char const* CascRegion = "eu";
+bool UseRemoteCasc = false;
+uint32 DbcLocale = 0;
 std::unordered_map<std::string, WMODoodadData> WmoDoodads;
 
 // Constants
 
-const char* szWorkDirWmo = "./Buildings";
+char const* szWorkDirWmo = "./Buildings";
 
 #define CASC_LOCALES_COUNT 17
 char const* CascLocaleNames[CASC_LOCALES_COUNT] =
@@ -106,8 +102,18 @@ bool OpenCascStorage(int locale)
 {
     try
     {
+        if (UseRemoteCasc)
+        {
+            boost::filesystem::path const casc_cache_dir(boost::filesystem::canonical(input_path) / "CascCache");
+            CascStorage.reset(CASC::Storage::OpenRemote(casc_cache_dir, WowLocaleToCascLocaleFlags[locale], CascProduct, CascRegion));
+            if (CascStorage)
+                return true;
+
+            printf("Unable to open remote casc fallback to local casc\n");
+        }
+
         boost::filesystem::path const storage_dir(boost::filesystem::canonical(input_path) / "Data");
-        CascStorage = CASC::OpenStorage(storage_dir, WowLocaleToCascLocaleFlags[locale], CascProduct);
+        CascStorage.reset(CASC::Storage::Open(storage_dir, WowLocaleToCascLocaleFlags[locale], CascProduct));
         if (!CascStorage)
         {
             printf("error opening casc storage '%s' locale %s\n", storage_dir.string().c_str(), localeNames[locale]);
@@ -116,7 +122,7 @@ bool OpenCascStorage(int locale)
 
         return true;
     }
-    catch (boost::filesystem::filesystem_error& error)
+    catch (std::exception const& error)
     {
         printf("error opening casc storage : %s\n", error.what());
         return false;
@@ -127,14 +133,25 @@ uint32 GetInstalledLocalesMask()
 {
     try
     {
+        if (UseRemoteCasc)
+        {
+            boost::filesystem::path const casc_cache_dir(boost::filesystem::canonical(input_path) / "CascCache");
+
+            std::unique_ptr<CASC::Storage> storage(CASC::Storage::OpenRemote(casc_cache_dir, 0, CascProduct, CascRegion));
+            if (storage)
+                return CASC_LOCALE_ALL_WOW;
+
+            printf("Unable to open remote casc fallback to local casc\n");
+        }
+
         boost::filesystem::path const storage_dir(boost::filesystem::canonical(input_path) / "Data");
-        CASC::StorageHandle storage = CASC::OpenStorage(storage_dir, 0, CascProduct);
+        std::unique_ptr<CASC::Storage> storage(CASC::Storage::Open(storage_dir, 0, CascProduct));
         if (!storage)
             return false;
 
-        return CASC::GetInstalledLocalesMask(storage);
+        return storage->GetInstalledLocalesMask();
     }
-    catch (boost::filesystem::filesystem_error const& error)
+    catch (std::exception const& error)
     {
         printf("Unable to determine installed locales mask: %s\n", error.what());
     }
@@ -142,15 +159,18 @@ uint32 GetInstalledLocalesMask()
     return 0;
 }
 
+uint32 uniqueObjectIdGenerator = std::numeric_limits<uint32>::max() - 1;
 std::map<std::pair<uint32, uint16>, uint32> uniqueObjectIds;
 
-uint32 GenerateUniqueObjectId(uint32 clientId, uint16 clientDoodadId)
+uint32 GenerateUniqueObjectId(uint32 clientId, uint16 clientDoodadId, bool isWmo)
 {
-    return uniqueObjectIds.emplace(std::make_pair(clientId, clientDoodadId), uniqueObjectIds.size() + 1).first->second;
+    // WMO client ids must be preserved, they are used in DB2 files
+    uint32 newId = isWmo ? clientId : uniqueObjectIdGenerator--;
+    return uniqueObjectIds.emplace(std::make_pair(clientId, clientDoodadId), newId).first->second;
 }
 
 // Local testing functions
-bool FileExists(const char* file)
+bool FileExists(char const* file)
 {
     if (FILE* n = fopen(file, "rb"))
     {
@@ -165,30 +185,20 @@ bool ExtractSingleWmo(std::string& fname)
     // Copy files from archive
     std::string originalName = fname;
 
-    char szLocalFile[1024];
     char* plain_name = GetPlainName(&fname[0]);
-    if (fname.substr(0, 4) != "FILE")
-        FixNameCase(plain_name, strlen(plain_name));
-    FixNameSpaces(plain_name, strlen(plain_name));
-    sprintf(szLocalFile, "%s/%s", szWorkDirWmo, plain_name);
+    NormalizeFileName(plain_name, strlen(plain_name));
+    std::string szLocalFile = Trinity::StringFormat("{}/{}", szWorkDirWmo, plain_name);
 
-    if (FileExists(szLocalFile))
+    if (FileExists(szLocalFile.c_str()))
         return true;
 
     int p = 0;
     // Select root wmo files
     char const* rchr = strrchr(plain_name, '_');
-    if (rchr != NULL)
-    {
-        char cpy[4];
-        memcpy(cpy, rchr, 4);
+    if (rchr != nullptr)
         for (int i = 0; i < 4; ++i)
-        {
-            int m = cpy[i];
-            if (isdigit(m))
+            if (isdigit(rchr[i]))
                 p++;
-        }
-    }
 
     if (p == 3)
         return true;
@@ -200,29 +210,44 @@ bool ExtractSingleWmo(std::string& fname)
         printf("Couldn't open RootWmo!!!\n");
         return true;
     }
-    FILE *output = fopen(szLocalFile,"wb");
+    FILE *output = fopen(szLocalFile.c_str(),"wb");
     if(!output)
     {
-        printf("couldn't open %s for writing!\n", szLocalFile);
+        printf("couldn't open %s for writing!\n", szLocalFile.c_str());
         return false;
     }
     froot.ConvertToVMAPRootWmo(output);
     WMODoodadData& doodads = WmoDoodads[plain_name];
     std::swap(doodads, froot.DoodadData);
     int Wmo_nVertices = 0;
+    uint32 groupCount = 0;
     //printf("root has %d groups\n", froot->nGroups);
+    std::vector<WMOGroup> groups;
+    groups.reserve(froot.groupFileDataIDs.size());
     for (std::size_t i = 0; i < froot.groupFileDataIDs.size(); ++i)
     {
-        std::string s = Trinity::StringFormat("FILE%08X.xxx", froot.groupFileDataIDs[i]);
-        WMOGroup fgroup(s);
+        std::string s = Trinity::StringFormat("FILE{:08X}.xxx", froot.groupFileDataIDs[i]);
+        WMOGroup& fgroup = groups.emplace_back(s);
         if (!fgroup.open(&froot))
         {
             printf("Could not open all Group file for: %s\n", plain_name);
             file_ok = false;
             break;
         }
+    }
+
+    for (WMOGroup& fgroup : groups)
+    {
+        if (fgroup.ShouldSkip(&froot))
+            continue;
+
+        if (fgroup.mogpFlags2 & 0x80
+            && fgroup.parentOrFirstChildSplitGroupIndex >= 0
+            && size_t(fgroup.parentOrFirstChildSplitGroupIndex) < groups.size())
+            fgroup.groupWMOID = groups[fgroup.parentOrFirstChildSplitGroupIndex].groupWMOID;
 
         Wmo_nVertices += fgroup.ConvertToVMAPGroupWmo(output, preciseVectorData);
+        ++groupCount;
         for (uint16 groupReference : fgroup.DoodadReferences)
         {
             if (groupReference >= doodads.Spawns.size())
@@ -237,12 +262,14 @@ bool ExtractSingleWmo(std::string& fname)
     }
 
     fseek(output, 8, SEEK_SET); // store the correct no of vertices
-    fwrite(&Wmo_nVertices,sizeof(int),1,output);
+    fwrite(&Wmo_nVertices, sizeof(int), 1, output);
+    // store the correct no of groups
+    fwrite(&groupCount, sizeof(uint32), 1, output);
     fclose(output);
 
     // Delete the extracted file in the case of an error
     if (!file_ok)
-        remove(szLocalFile);
+        remove(szLocalFile.c_str());
     return true;
 }
 
@@ -254,12 +281,16 @@ void ParsMapFiles()
         auto itr = wdts.find(mapId);
         if (itr == wdts.end())
         {
-            uint32 fileDataId = map_ids[mapId].WdtFileDataId;
+            auto mapEntryItr = std::find_if(map_ids.begin(), map_ids.end(), [mapId](MapEntry const& mapEntry) { return mapEntry.Id == mapId; });
+            if (mapEntryItr == map_ids.end())
+                return nullptr;
+
+            uint32 fileDataId = mapEntryItr->WdtFileDataId;
             if (!fileDataId)
                 return nullptr;
 
-            std::string description = Trinity::StringFormat("WDT for map %u - %s (FileDataID %u)", mapId, map_ids[mapId].Name.c_str(), fileDataId);
-            std::string directory = map_ids[mapId].Directory;
+            std::string description = Trinity::StringFormat("WDT for map {} - {} (FileDataID {})", mapId, mapEntryItr->Name, fileDataId);
+            std::string directory = mapEntryItr->Directory;
             itr = wdts.emplace(std::piecewise_construct, std::forward_as_tuple(mapId), std::forward_as_tuple(fileDataId, description, std::move(directory), maps_that_are_parents.count(mapId) > 0)).first;
             if (!itr->second.init(mapId))
             {
@@ -271,12 +302,12 @@ void ParsMapFiles()
         return &itr->second;
     };
 
-    for (auto itr = map_ids.begin(); itr != map_ids.end(); ++itr)
+    for (MapEntry const& mapEntry : map_ids)
     {
-        if (WDTFile* WDT = getWDT(itr->first))
+        if (WDTFile* WDT = getWDT(mapEntry.Id))
         {
-            WDTFile* parentWDT = itr->second.ParentMapID >= 0 ? getWDT(itr->second.ParentMapID) : nullptr;
-            printf("Processing Map %u\n[", itr->first);
+            WDTFile* parentWDT = mapEntry.ParentMapID >= 0 ? getWDT(mapEntry.ParentMapID) : nullptr;
+            printf("Processing Map %u\n[", mapEntry.Id);
             for (int32 x = 0; x < 64; ++x)
             {
                 for (int32 y = 0; y < 64; ++y)
@@ -284,14 +315,14 @@ void ParsMapFiles()
                     bool success = false;
                     if (ADTFile* ADT = WDT->GetMap(x, y))
                     {
-                        success = ADT->init(itr->first, itr->first);
+                        success = ADT->init(mapEntry.Id, mapEntry.Id);
                         WDT->FreeADT(ADT);
                     }
                     if (!success && parentWDT)
                     {
                         if (ADTFile* ADT = parentWDT->GetMap(x, y))
                         {
-                            ADT->init(itr->first, itr->second.ParentMapID);
+                            ADT->init(mapEntry.Id, mapEntry.ParentMapID);
                             parentWDT->FreeADT(ADT);
                         }
                     }
@@ -342,6 +373,29 @@ bool processArgv(int argc, char ** argv, const char *versionString)
             else
                 result = false;
         }
+        else if (strcmp("-c", argv[i]) == 0)
+        {
+            UseRemoteCasc = true;
+        }
+        else if (strcmp("-r", argv[i]) == 0)
+        {
+            if (i + 1 < argc && strlen(argv[i + 1]))
+                CascRegion = argv[++i];
+            else
+                result = false;
+        }
+        else if (strcmp("-dl", argv[i]) == 0)
+        {
+            if (i + 1 < argc && strlen(argv[i + 1]))
+            {
+                for (uint32 l = 0; l < TOTAL_LOCALES; ++l)
+                    if (!strcmp(argv[i + 1], localeNames[l]))
+                        DbcLocale = 1 << l;
+                i++;
+            }
+            else
+                result = false;
+        }
         else
         {
             result = false;
@@ -353,10 +407,13 @@ bool processArgv(int argc, char ** argv, const char *versionString)
     {
         printf("Extract %s.\n",versionString);
         printf("%s [-?][-s][-l][-d <path>][-p <product>]\n", argv[0]);
-        printf("   -s : (default) small size (data size optimization), ~500MB less vmap data.\n");
-        printf("   -l : large size, ~500MB more vmap data. (might contain more details)\n");
-        printf("   -d <path>: Path to the vector data source folder.\n");
-        printf("   -p <product>: which installed product to open (wow/wowt/wow_beta)\n");
+        printf("   -s  : (default) small size (data size optimization), ~500MB less vmap data.\n");
+        printf("   -l  : large size, ~500MB more vmap data. (might contain more details)\n");
+        printf("   -d  <path>: Path to the vector data source folder.\n");
+        printf("   -p  <product>: which installed product to open (wow/wowt/wow_beta)\n");
+        printf("   -c  use remote casc\n");
+        printf("   -r  set remote casc region - standard: eu\n");
+        printf("   -dl dbc locale\n");
         printf("   -? : This message.\n");
     }
 
@@ -367,6 +424,9 @@ static bool RetardCheck()
 {
     try
     {
+        if (UseRemoteCasc)
+            return true;
+
         boost::filesystem::path storageDir(boost::filesystem::canonical(input_path) / "Data");
         boost::filesystem::directory_iterator end;
         for (boost::filesystem::directory_iterator itr(storageDir); itr != end; ++itr)
@@ -374,7 +434,7 @@ static bool RetardCheck()
             if (itr->path().extension() == ".MPQ")
             {
                 printf("MPQ files found in Data directory!\n");
-                printf("This tool works only with World of Warcraft: Legion\n");
+                printf("This tool works only with World of Warcraft: Dragonflight\n");
                 printf("\n");
                 printf("To extract maps for Wrath of the Lich King, rebuild tools using 3.3.5 branch!\n");
                 printf("\n");
@@ -392,36 +452,28 @@ static bool RetardCheck()
     return true;
 }
 
-//xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-// Main
-//
-// The program must be run with two command line arguments
-//
-// Arg1 - The source MPQ name (for testing reading and file find)
-// Arg2 - Listfile name
-//
-
 int main(int argc, char ** argv)
 {
+    Trinity::VerifyOsVersion();
+
+    Trinity::Locale::Init();
+
     Trinity::Banner::Show("VMAP data extractor", [](char const* text) { printf("%s\n", text); }, nullptr);
 
     bool success = true;
-    const char *versionString = "V4.06 2018_02";
 
     // Use command line arguments, when some
-    if (!processArgv(argc, argv, versionString))
+    if (!processArgv(argc, argv, VMAP::VMAP_MAGIC))
         return 1;
 
     if (!RetardCheck())
         return 1;
 
     // some simple check if working dir is dirty
-    else
+    boost::filesystem::path sdir_bin = boost::filesystem::path(szWorkDirWmo) / "dir_bin";
     {
-        std::string sdir = std::string(szWorkDirWmo) + "/dir";
-        std::string sdir_bin = std::string(szWorkDirWmo) + "/dir_bin";
-        struct stat status;
-        if (!stat(sdir.c_str(), &status) || !stat(sdir_bin.c_str(), &status))
+        boost::system::error_code ec;
+        if (boost::filesystem::exists(sdir_bin, ec) && !boost::filesystem::is_empty(sdir_bin, ec))
         {
             printf("Your output directory seems to be polluted, please use an empty directory!\n");
             printf("<press return to exit>");
@@ -430,20 +482,18 @@ int main(int argc, char ** argv)
         }
     }
 
-    printf("Extract %s. Beginning work ....\n\n", versionString);
+    printf("Extract %s. Beginning work ....\n", VMAP::VMAP_MAGIC);
     //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
     // Create the working directory
-    if (mkdir(szWorkDirWmo
-#if defined(__linux__) || defined(__APPLE__)
-                    , 0711
-#endif
-                    ))
-            success = (errno == EEXIST);
+    success = boost::filesystem::create_directories(sdir_bin) || boost::filesystem::is_directory(sdir_bin);
 
     uint32 installedLocalesMask = GetInstalledLocalesMask();
     int32 FirstLocale = -1;
     for (int i = 0; i < TOTAL_LOCALES; ++i)
     {
+        if (DbcLocale && !(DbcLocale & (1 << i)))
+            continue;
+
         if (i == LOCALE_none)
             continue;
 
@@ -454,14 +504,14 @@ int main(int argc, char ** argv)
             continue;
 
         FirstLocale = i;
-        uint32 build = CASC::GetBuildNumber(CascStorage);
+        uint32 build = CascStorage->GetBuildNumber();
         if (!build)
         {
             CascStorage.reset();
             continue;
         }
 
-        printf("Detected client build: %u\n\n", build);
+        printf("Detected client build %u for locale %s\n\n", build, localeNames[i]);
         break;
     }
 
@@ -480,42 +530,63 @@ int main(int argc, char ** argv)
     {
         printf("Read Map.dbc file... ");
 
-        DB2CascFileSource source(CascStorage, MapLoadInfo::Instance()->Meta->FileDataId);
+        DB2CascFileSource source(CascStorage, MapLoadInfo::Instance.Meta->FileDataId);
         DB2FileLoader db2;
-        if (!db2.Load(&source, MapLoadInfo::Instance()))
+        try
         {
-            printf("Fatal error: Invalid Map.db2 file format! %s\n", CASC::HumanReadableCASCError(GetLastError()));
+            db2.Load(&source, &MapLoadInfo::Instance);
+        }
+        catch (std::exception const& e)
+        {
+            printf("Fatal error: Invalid Map.db2 file format! %s\n%s\n", CASC::HumanReadableCASCError(GetCascError()), e.what());
             exit(1);
         }
 
+        map_ids.reserve(db2.GetRecordCount());
+        std::unordered_map<uint32, std::size_t> idToIndex;
         for (uint32 x = 0; x < db2.GetRecordCount(); ++x)
         {
             DB2Record record = db2.GetRecord(x);
             if (!record)
                 continue;
 
-            MapEntry& m = map_ids[record.GetId()];
-            m.WdtFileDataId = record.GetInt32("WdtFileDataID");
-            m.ParentMapID = int16(record.GetUInt16("ParentMapID"));
-            m.Name = record.GetString("MapName");
-            m.Directory = record.GetString("Directory");
-            if (m.ParentMapID >= 0)
-                maps_that_are_parents.insert(m.ParentMapID);
+            MapEntry map;
+            map.Id = record.GetId();
+            map.WdtFileDataId = record.GetInt32("WdtFileDataID");
+            map.ParentMapID = int16(record.GetUInt16("ParentMapID"));
+            map.Name = record.GetString("MapName");
+            map.Directory = record.GetString("Directory");
+
+            if (map.ParentMapID < 0)
+                map.ParentMapID = int16(record.GetUInt16("CosmeticParentMapID"));
+
+            if (map.ParentMapID >= 0)
+                maps_that_are_parents.insert(map.ParentMapID);
+
+            idToIndex[map.Id] = map_ids.size();
+            map_ids.push_back(map);
         }
 
         for (uint32 x = 0; x < db2.GetRecordCopyCount(); ++x)
         {
             DB2RecordCopy copy = db2.GetRecordCopy(x);
-            auto itr = map_ids.find(copy.SourceRowId);
-            if (itr != map_ids.end())
+            auto itr = idToIndex.find(copy.SourceRowId);
+            if (itr != idToIndex.end())
             {
-                MapEntry& id = map_ids[copy.NewRowId];
-                id.WdtFileDataId = itr->second.WdtFileDataId;
-                id.ParentMapID = itr->second.ParentMapID;
-                id.Name = itr->second.Name;
-                id.Directory = itr->second.Directory;
+                MapEntry map;
+                map.Id = copy.NewRowId;
+                map.WdtFileDataId = map_ids[itr->second].WdtFileDataId;
+                map.ParentMapID = map_ids[itr->second].ParentMapID;
+                map.Name = map_ids[itr->second].Name;
+                map.Directory = map_ids[itr->second].Directory;
+                map_ids.push_back(map);
             }
         }
+
+        map_ids.erase(std::remove_if(map_ids.begin(), map_ids.end(), [](MapEntry const& map) { return !map.WdtFileDataId; }), map_ids.end());
+
+        // force parent maps to be extracted first
+        std::stable_partition(map_ids.begin(), map_ids.end(), [](MapEntry const& map) { return maps_that_are_parents.count(map.Id) > 0; });
 
         printf("Done! (" SZFMTD " maps loaded)\n", map_ids.size());
         ParsMapFiles();
@@ -526,10 +597,16 @@ int main(int argc, char ** argv)
     printf("\n");
     if (!success)
     {
-        printf("ERROR: Extract %s. Work NOT complete.\n   Precise vector data=%d.\nPress any key.\n", versionString, preciseVectorData);
+        printf("ERROR: Extract %s. Work NOT complete.\n   Precise vector data=%d.\nPress any key.\n", VMAP::VMAP_MAGIC, preciseVectorData);
         getchar();
     }
 
-    printf("Extract %s. Work complete. No errors.\n", versionString);
+    printf("Extract %s. Work complete. No errors.\n", VMAP::VMAP_MAGIC);
     return 0;
 }
+
+#if TRINITY_PLATFORM == TRINITY_PLATFORM_WINDOWS
+#include "WheatyExceptionReport.h"
+// must be at end of file because of init_seg pragma
+INIT_CRASH_HANDLER();
+#endif

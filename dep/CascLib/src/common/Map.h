@@ -15,7 +15,6 @@
 // Structures
 
 #define MIN_HASH_TABLE_SIZE     0x00000100      // The smallest size of the hash table.
-#define MAX_HASH_TABLE_SIZE     0x00800000      // The largest size of the hash table. Should be enough for any game.
 
 typedef int   (*PFNCOMPAREFUNC)(const void * pvObjectKey, const void * pvKey, size_t nKeyLength);
 typedef DWORD (*PFNHASHFUNC)(void * pvKey, size_t nKeyLength);
@@ -36,7 +35,7 @@ typedef enum _KEY_TYPE
 inline DWORD CalcHashValue_Hash(void * pvKey, size_t /* nKeyLength */)
 {
     // Get the hash directly as value
-    return ConvertBytesToInteger_4((LPBYTE)pvKey);
+    return ConvertBytesToInteger_4_LE((LPBYTE)pvKey);
 }
 
 // Calculates hash value from a key
@@ -94,7 +93,7 @@ class CASC_MAP
         Free();
     }
 
-    int Create(size_t MaxItems, size_t KeyLength, size_t KeyOffset, KEY_TYPE KeyType = KeyIsHash)
+    DWORD Create(size_t MaxItems, size_t KeyLength, size_t KeyOffset, KEY_TYPE KeyType = KeyIsHash)
     {
         // Set the class variables
         m_KeyLength = CASCLIB_MAX(KeyLength, 8);
@@ -328,20 +327,22 @@ class CASC_MAP
 
     size_t GetNearestPowerOfTwo(size_t MaxItems)
     {
-        size_t PowerOfTwo;
+        size_t PowerOfTwo = MIN_HASH_TABLE_SIZE;
         
         // Round the hash table size up to the nearest power of two
-        for(PowerOfTwo = MIN_HASH_TABLE_SIZE; PowerOfTwo < MAX_HASH_TABLE_SIZE; PowerOfTwo <<= 1)
+        while(PowerOfTwo < MaxItems)
         {
-            if(PowerOfTwo > MaxItems)
+            // Overflow check
+            if((PowerOfTwo << 1) < PowerOfTwo)
             {
-                return PowerOfTwo;
+                assert(false);
+                return 0;
             }
-        }
 
-        // If the hash table is too big, we cannot create the map
-        assert(false);
-        return 0;
+            // Shift the value
+            PowerOfTwo <<= 1;
+        }
+        return PowerOfTwo;
     }
 
     PFNHASHFUNC PfnCalcHashValue;
@@ -352,6 +353,29 @@ class CASC_MAP
     size_t m_KeyLength;                         // Length of the hash key, in bytes
     bool m_bKeyIsHash;                          // If set, then it means that the key is a hash of some sort.
                                                 // Will improve performance, as we will not hash a hash :-)
+};
+
+//-----------------------------------------------------------------------------
+// Key map interface
+
+// Maximum length of encryption key
+#define CASC_KEY_LENGTH         0x10
+#define CASC_KEY_TABLE_SIZE     0x100
+#define CASC_KEY_TABLE_MASK     (CASC_KEY_TABLE_SIZE - 1)
+
+class CASC_KEY_MAP
+{
+    public:
+
+    CASC_KEY_MAP();
+    ~CASC_KEY_MAP();
+
+    LPBYTE FindKey(ULONGLONG KeyName);
+    bool AddKey(ULONGLONG KeyName, LPBYTE Key);
+
+    protected:
+
+    void * HashTable[CASC_KEY_TABLE_SIZE];
 };
 
 #endif // __CASC_MAP_H__

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -35,16 +35,16 @@ TC_COMMON_API uint32 urandms(uint32 min, uint32 max);
 TC_COMMON_API uint32 rand32();
 
 /* Return a random time in the range min..max (up to millisecond precision). Only works for values where millisecond difference is a valid uint32. */
-TC_COMMON_API Milliseconds randtime(Milliseconds const& min, Milliseconds const& max);
+TC_COMMON_API Milliseconds randtime(Milliseconds min, Milliseconds max);
 
 /* Return a random number in the range min..max */
 TC_COMMON_API float frand(float min, float max);
 
-/* Return a random double from 0.0 to 1.0 (exclusive). */
-TC_COMMON_API double rand_norm();
+/* Return a random float from 0.0 to 1.0 (exclusive). */
+TC_COMMON_API float rand_norm();
 
-/* Return a random double from 0.0 to 100.0 (exclusive). */
-TC_COMMON_API double rand_chance();
+/* Return a random float from 0.0 to 100.0 (exclusive). */
+TC_COMMON_API float rand_chance();
 
 /* Return a random number in the range 0..count (exclusive) with each value having a different chance of happening */
 TC_COMMON_API uint32 urandweighted(size_t count, double const* chances);
@@ -62,9 +62,9 @@ inline bool roll_chance_i(int chance)
 }
 
 /*
-* SFMT wrapper satisfying UniformRandomNumberGenerator concept for use in <random> algorithms
+* Wrapper satisfying UniformRandomNumberGenerator concept for use in <random> algorithms
 */
-class TC_COMMON_API SFMTEngine
+class TC_COMMON_API RandomEngine
 {
 public:
     typedef uint32 result_type;
@@ -73,7 +73,7 @@ public:
     static constexpr result_type max() { return std::numeric_limits<result_type>::max(); }
     result_type operator()() const { return rand32(); }
 
-    static SFMTEngine& Instance();
+    static RandomEngine& Instance();
 };
 
 #endif // Random_h__

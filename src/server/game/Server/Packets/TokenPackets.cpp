@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -17,39 +17,39 @@
 
 #include "TokenPackets.h"
 
-void WorldPackets::Token::UpdateListedAuctionableTokens::Read()
+void WorldPackets::Token::CommerceTokenGetLog::Read()
 {
-    _worldPacket >> UnkInt;
+    _worldPacket >> ClientToken;
 }
 
-WorldPacket const* WorldPackets::Token::UpdateListedAuctionableTokensResponse::Write()
+WorldPacket const* WorldPackets::Token::CommerceTokenGetLogResponse::Write()
 {
-    _worldPacket << UnkInt;
+    _worldPacket << ClientToken;
     _worldPacket << Result;
-    _worldPacket << uint32(AuctionableTokenAuctionableList.size());
-    for (AuctionableTokenAuctionable const& auctionableTokenAuctionable : AuctionableTokenAuctionableList)
+    _worldPacket << uint32(AuctionableTokens.size());
+    for (AuctionableTokenInfo const& auctionableTokenAuctionable : AuctionableTokens)
     {
-        _worldPacket << auctionableTokenAuctionable.UnkInt1;
-        _worldPacket << auctionableTokenAuctionable.UnkInt2;
-        _worldPacket << auctionableTokenAuctionable.Owner;
-        _worldPacket << auctionableTokenAuctionable.BuyoutPrice;
-        _worldPacket << auctionableTokenAuctionable.EndTime;
+        _worldPacket << auctionableTokenAuctionable.Id;
+        _worldPacket << auctionableTokenAuctionable.LastUpdate;
+        _worldPacket << auctionableTokenAuctionable.Price;
+        _worldPacket << auctionableTokenAuctionable.Status;
+        _worldPacket << auctionableTokenAuctionable.DurationLeft;
     }
 
     return &_worldPacket;
 }
 
-void WorldPackets::Token::RequestWowTokenMarketPrice::Read()
+void WorldPackets::Token::CommerceTokenGetMarketPrice::Read()
 {
-    _worldPacket >> UnkInt;
+    _worldPacket >> ClientToken;
 }
 
-WorldPacket const* WorldPackets::Token::WowTokenMarketPriceResponse::Write()
+WorldPacket const* WorldPackets::Token::CommerceTokenGetMarketPriceResponse::Write()
 {
-    _worldPacket << CurrentMarketPrice;
-    _worldPacket << UnkInt;
-    _worldPacket << Result;
-    _worldPacket << AuctionDuration;
+    _worldPacket << PriceGuarantee;
+    _worldPacket << ClientToken;
+    _worldPacket << ServerToken;
+    _worldPacket << PriceLockDurationSeconds;
 
     return &_worldPacket;
 }

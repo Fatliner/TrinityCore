@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+* This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -33,13 +33,13 @@ WorldPacket const* WorldPackets::Taxi::TaxiNodeStatus::Write()
 
 WorldPacket const* WorldPackets::Taxi::ShowTaxiNodes::Write()
 {
-    _worldPacket.WriteBit(WindowInfo.is_initialized());
+    _worldPacket.WriteBit(WindowInfo.has_value());
     _worldPacket.FlushBits();
 
-    _worldPacket << uint32(CanLandNodes.size());
-    _worldPacket << uint32(CanUseNodes.size());
+    _worldPacket << uint32(CanLandNodes.size() / 8); // client reads this in uint64 blocks, size is ensured to be divisible by 8 in TaxiMask constructor
+    _worldPacket << uint32(CanUseNodes.size() / 8);  // client reads this in uint64 blocks, size is ensured to be divisible by 8 in TaxiMask constructor
 
-    if (WindowInfo.is_initialized())
+    if (WindowInfo.has_value())
     {
         _worldPacket << WindowInfo->UnitGUID;
         _worldPacket << uint32(WindowInfo->CurrentNode);
@@ -67,6 +67,13 @@ void WorldPackets::Taxi::ActivateTaxi::Read()
     _worldPacket >> Node;
     _worldPacket >> GroundMountID;
     _worldPacket >> FlyingMountID;
+}
+
+WorldPacket const* WorldPackets::Taxi::NewTaxiPath::Write()
+{
+    _worldPacket << int32(TaxiNodesID);
+
+    return &_worldPacket;
 }
 
 WorldPacket const* WorldPackets::Taxi::ActivateTaxiReply::Write()

@@ -1,7 +1,7 @@
 /*****************************************************************************/
-/* CascLib.h                              Copyright (c) Ladislav Zezula 2014 */
+/* CascLib.h                              Copyright (c) Ladislav Zezula 2022 */
 /*---------------------------------------------------------------------------*/
-/* CascLib library v 1.00                                                    */
+/* CascLib library v 3.0                                                     */
 /*                                                                           */
 /* Author : Ladislav Zezula                                                  */
 /* E-mail : ladik@zezula.net                                                 */
@@ -10,13 +10,14 @@
 /*   Date    Ver   Who  Comment                                              */
 /* --------  ----  ---  -------                                              */
 /* 29.04.14  1.00  Lad  Created                                              */
+/* 19.12.22  1.00  Lad  Version 3.0                                          */
 /*****************************************************************************/
 
 #ifndef __CASCLIB_H__
 #define __CASCLIB_H__
 
 #ifdef _MSC_VER
-#pragma warning(disable:4668)                   // 'XXX' is not defined as a preprocessor macro, replacing with '0' for '#if/#elif'
+#pragma warning(disable:4668)       // 'XXX' is not defined as a preprocessor macro, replacing with '0' for '#if/#elif'
 #pragma warning(disable:4820)       // 'XXX' : '2' bytes padding added after data member 'XXX::yyy'
 #endif
 
@@ -34,46 +35,49 @@ extern "C" {
 //
 //  X - D for Debug version, R for Release version
 //  Y - A for ANSI version, U for Unicode version
-//  Z - S for static-linked CRT library, D for multithreaded DLL CRT library
+//  Z - S for static-linked CRT library, D for dynamic CRT library (dll)
 //
-#if defined(_MSC_VER) && !defined(__CASCLIB_SELF__) && !defined(CASCLIB_NO_AUTO_LINK_LIBRARY)
 
-  #ifdef _DEBUG                                 // DEBUG VERSIONS
-    #ifndef _UNICODE
-      #ifdef _DLL
-        #pragma comment(lib, "CascLibDAD.lib")  // Debug Ansi CRT-DLL version
+#if defined(_MSC_VER) && !defined(__CASCLIB_SELF__) && !defined(CASCLIB_NO_AUTO_LINK_LIBRARY)
+  #ifndef WDK_BUILD
+    #ifdef _DEBUG                                 // DEBUG VERSIONS
+      #ifndef _UNICODE
+        #ifdef _DLL
+          #pragma comment(lib, "CascLibDAD.lib")  // Debug Ansi CRT-DLL version
+        #else
+          #pragma comment(lib, "CascLibDAS.lib")  // Debug Ansi CRT-LIB version
+        #endif
       #else
-        #pragma comment(lib, "CascLibDAS.lib")  // Debug Ansi CRT-LIB version
+        #ifdef _DLL
+          #pragma comment(lib, "CascLibDUD.lib")  // Debug Unicode CRT-DLL version
+        #else
+          #pragma comment(lib, "CascLibDUS.lib")  // Debug Unicode CRT-LIB version
+        #endif
       #endif
-    #else
-      #ifdef _DLL
-        #pragma comment(lib, "CascLibDUD.lib")  // Debug Unicode CRT-DLL version
+    #else                                         // RELEASE VERSIONS
+      #ifndef _UNICODE
+        #ifdef _DLL
+          #pragma comment(lib, "CascLibRAD.lib")  // Release Ansi CRT-DLL version
+        #else
+          #pragma comment(lib, "CascLibRAS.lib")  // Release Ansi CRT-LIB version
+        #endif
       #else
-        #pragma comment(lib, "CascLibDUS.lib")  // Debug Unicode CRT-LIB version
-      #endif
-    #endif
-  #else                                         // RELEASE VERSIONS
-    #ifndef _UNICODE
-      #ifdef _DLL
-        #pragma comment(lib, "CascLibRAD.lib")  // Release Ansi CRT-DLL version
-      #else
-        #pragma comment(lib, "CascLibRAS.lib")  // Release Ansi CRT-LIB version
-      #endif
-    #else
-      #ifdef _DLL
-        #pragma comment(lib, "CascLibRUD.lib")  // Release Unicode CRT-DLL version
-      #else
-        #pragma comment(lib, "CascLibRUS.lib")  // Release Unicode CRT-LIB version
+        #ifdef _DLL
+          #pragma comment(lib, "CascLibRUD.lib")  // Release Unicode CRT-DLL version
+        #else
+          #pragma comment(lib, "CascLibRUS.lib")  // Release Unicode CRT-LIB version
+        #endif
       #endif
     #endif
   #endif
-
 #endif
+
 //-----------------------------------------------------------------------------
 // Defines
 
-#define CASCLIB_VERSION                 0x0200  // CascLib version - integral (1.50)
-#define CASCLIB_VERSION_STRING           "2.0"  // CascLib version - string
+// Version information
+#define CASCLIB_VERSION                 0x0300  // CascLib version - integral (3.0)
+#define CASCLIB_VERSION_STRING           "3.0"  // CascLib version - string
 
 // Values for CascOpenFile
 #define CASC_OPEN_BY_NAME           0x00000000  // Open the file by name. This is the default value
@@ -84,8 +88,11 @@ extern "C" {
 #define CASC_OPEN_FLAGS_MASK        0xFFFFFFF0  // The mask which gets open type from the dwFlags
 #define CASC_STRICT_DATA_CHECK      0x00000010  // Verify all data read from a file
 #define CASC_OVERCOME_ENCRYPTED     0x00000020  // When CascReadFile encounters a block encrypted with a key that is missing, the block is filled with zeros and returned as success
+#define CASC_OPEN_CKEY_ONCE         0x00000040  // Only opens a file with given CKey once, regardless on how many file names does it have. Used by CascLib test program
+                                                // If the file was already open before, CascOpenFile returns false and ERROR_FILE_ALREADY_OPENED
 
 #define CASC_LOCALE_ALL             0xFFFFFFFF
+#define CASC_LOCALE_ALL_WOW         0x0001F3F6  // All except enCN and enTW
 #define CASC_LOCALE_NONE            0x00000000
 #define CASC_LOCALE_UNKNOWN1        0x00000001
 #define CASC_LOCALE_ENUS            0x00000002
@@ -106,11 +113,18 @@ extern "C" {
 #define CASC_LOCALE_PTPT            0x00010000
 
 // Content flags on WoW
+#define CASC_CFLAG_INSTALL                0x04
 #define CASC_CFLAG_LOAD_ON_WINDOWS        0x08
 #define CASC_CFLAG_LOAD_ON_MAC            0x10
+#define CASC_CFLAG_X86_32                 0x20
+#define CASC_CFLAG_X86_64                 0x40
 #define CASC_CFLAG_LOW_VIOLENCE           0x80
 #define CASC_CFLAG_DONT_LOAD             0x100
+#define CASC_CFLAG_UPDATE_PLUGIN         0x800
+#define CASC_CFLAG_ARM64                0x8000
+#define CASC_CFLAG_ENCRYPTED         0x8000000
 #define CASC_CFLAG_NO_NAME_HASH     0x10000000
+#define CASC_CFLAG_UNCMN_RESOLUTION 0x20000000      // Uncommon resolution
 #define CASC_CFLAG_BUNDLE           0x40000000
 #define CASC_CFLAG_NO_COMPRESSION   0x80000000
 
@@ -119,13 +133,19 @@ extern "C" {
 #define MD5_STRING_SIZE                   0x20
 #endif
 
-// Return value for CascGetFileSize and CascSetFilePointer
+#ifndef SHA1_HASH_SIZE
+#define SHA1_HASH_SIZE                    0x14
+#define SHA1_STRING_SIZE                  0x28
+#endif
+
+// Invalid values of all kind
 #define CASC_INVALID_INDEX          0xFFFFFFFF
 #define CASC_INVALID_SIZE           0xFFFFFFFF
 #define CASC_INVALID_POS            0xFFFFFFFF
 #define CASC_INVALID_ID             0xFFFFFFFF
 #define CASC_INVALID_OFFS64         0xFFFFFFFFFFFFFFFF
 #define CASC_INVALID_SIZE64         0xFFFFFFFFFFFFFFFF
+#define CASC_INVALID_SIZE_T         ((size_t)(-1))
 
 // Flags for CASC_STORAGE_FEATURES::dwFeatures
 #define CASC_FEATURE_FILE_NAMES     0x00000001  // File names are supported by the storage
@@ -136,11 +156,23 @@ extern "C" {
 #define CASC_FEATURE_FILE_DATA_IDS  0x00000020  // The storage indexes files by FileDataId
 #define CASC_FEATURE_LOCALE_FLAGS   0x00000040  // Locale flags are supported
 #define CASC_FEATURE_CONTENT_FLAGS  0x00000080  // Content flags are supported
-#define CASC_FEATURE_ONLINE         0x00000100  // The storage is an online storage
+#define CASC_FEATURE_DATA_ARCHIVES  0x00000100  // The storage supports files stored in data.### archives
+#define CASC_FEATURE_DATA_FILES     0x00000200  // The storage supports raw files stored in %CascRoot%\xx\yy\xxyy## (CKey-based)
+#define CASC_FEATURE_ONLINE         0x00000400  // Load the missing files from online CDNs
+#define CASC_FEATURE_FORCE_DOWNLOAD 0x00001000  // (Online) always download "versions" and "cdns" even if it exists locally
 
 // Macro to convert FileDataId to the argument of CascOpenFile
 #define CASC_FILE_DATA_ID(FileDataId) ((LPCSTR)(size_t)FileDataId)
 #define CASC_FILE_DATA_ID_FROM_STRING(szFileName)  ((DWORD)(size_t)szFileName)
+
+// Maximum length of encryption key
+#define CASC_KEY_LENGTH 0x10
+
+// Default format string for the file ID
+#define CASC_FILEID_FORMAT          "FILE%08X.dat"
+
+// Separator char for path-product delimiter
+#define CASC_PARAM_SEPARATOR        '*'
 
 //-----------------------------------------------------------------------------
 // Structures
@@ -155,7 +187,7 @@ typedef enum _CASC_STORAGE_INFO_CLASS
     // Returns the total file count, including the offline files
     CascStorageTotalFileCount,
 
-    
+
     CascStorageFeatures,                        // Returns the features flag
     CascStorageInstalledLocales,                // Not supported
     CascStorageProduct,                         // Gives CASC_STORAGE_PRODUCT
@@ -180,10 +212,10 @@ typedef enum _CASC_FILE_INFO_CLASS
 typedef enum _CASC_NAME_TYPE
 {
     CascNameFull,                               // Fully qualified file name
-    CascNameDataId,                             // Name created from file data id (FILE%08X.dat)
+    CascNameDataId,                             // Name created from file data id (CASC_FILEID_FORMAT)
     CascNameCKey,                               // Name created as string representation of CKey
     CascNameEKey                                // Name created as string representation of EKey
-} CASC_NAME_TYPE, *PCASC_NAME_TYPE; 
+} CASC_NAME_TYPE, *PCASC_NAME_TYPE;
 
 // Structure for SFileFindFirstFile and SFileFindNextFile
 typedef struct _CASC_FIND_DATA
@@ -191,7 +223,7 @@ typedef struct _CASC_FIND_DATA
     // Full name of the found file. In case when this is CKey/EKey,
     // this will be just string representation of the key stored in 'FileKey'
     char szFileName[MAX_PATH];
-    
+
     // Content key. This is present if the CASC_FEATURE_ROOT_CKEY is present
     BYTE CKey[MD5_HASH_SIZE];
 
@@ -209,7 +241,7 @@ typedef struct _CASC_FIND_DATA
 
     // File data ID. Only valid if the storage supports file data IDs, otherwise CASC_INVALID_ID
     DWORD dwFileDataId;
-    
+
     // Locale flags. Only valid if the storage supports locale flags, otherwise CASC_INVALID_ID
     DWORD dwLocaleFlags;
 
@@ -242,7 +274,7 @@ typedef struct _CASC_STORAGE_TAGS
 
     CASC_STORAGE_TAG Tags[1];                   // Array of CASC tags
 
-} CASC_STORAGE_TAGS, *PCASC_STORAGE_TAGS; 
+} CASC_STORAGE_TAGS, *PCASC_STORAGE_TAGS;
 
 typedef struct _CASC_STORAGE_PRODUCT
 {
@@ -323,54 +355,67 @@ typedef struct _CASC_OPEN_STORAGE_ARGS
     void * PtrProductParam;                     // Pointer-sized parameter that will be passed to PfnProgressCallback
 
     DWORD dwLocaleMask;                         // Locale mask to open
-    DWORD dwFlags;                              // Reserved. Set to zero.
+    DWORD dwFlags;                              // Additional CASC_FEATURE_XXX can be set here
 
     //
     // Any additional member from here on must be checked for availability using the ExtractVersionedArgument function.
     // Example:
     //
-    // DWORD dwMyExtraMember = 0;
-    // ExtractVersionedArgument(pArgs, offsetof(CASC_OPEN_STORAGE_ARGS, dwMyExtraMember), &dwMyExtraMember);
+    // LPCTSTR szBuildKey = NULL;
+    // ExtractVersionedArgument(pArgs, offsetof(CASC_OPEN_STORAGE_ARGS, szBuildId), &szBuildKey);
     //
+
+    LPCTSTR szBuildKey;                         // If non-null, this will specify a build key (aka MD5 of build config that is different that current online version)
+
+    LPCTSTR szCdnHostUrl;                       // If non-null, specifies the custom CDN URL. Must contain protocol, can contain port number
+                                                // Example: http://eu.custom-wow-cdn.com:8000
 
 } CASC_OPEN_STORAGE_ARGS, *PCASC_OPEN_STORAGE_ARGS;
 
 //-----------------------------------------------------------------------------
 // Functions for storage manipulation
 
-bool  WINAPI CascOpenStorageEx(LPCTSTR szParams, PCASC_OPEN_STORAGE_ARGS pArgs, bool bOnlineStorage, HANDLE * phStorage);
-bool  WINAPI CascOpenStorage(LPCTSTR szParams, DWORD dwLocaleMask, HANDLE * phStorage);
-bool  WINAPI CascOpenOnlineStorage(LPCTSTR szParams, DWORD dwLocaleMask, HANDLE * phStorage);
-bool  WINAPI CascGetStorageInfo(HANDLE hStorage, CASC_STORAGE_INFO_CLASS InfoClass, void * pvStorageInfo, size_t cbStorageInfo, size_t * pcbLengthNeeded);
-bool  WINAPI CascAddEncryptionKey(HANDLE hStorage, ULONGLONG KeyName, LPBYTE Key);
-bool  WINAPI CascAddStringEncryptionKey(HANDLE hStorage, ULONGLONG KeyName, LPCSTR szKey);
-LPBYTE WINAPI CascFindEncryptionKey(HANDLE hStorage, ULONGLONG KeyName);
-bool  WINAPI CascCloseStorage(HANDLE hStorage);
+bool   WINAPI CascOpenStorageEx(LPCTSTR szParams, PCASC_OPEN_STORAGE_ARGS pArgs, bool bOnlineStorage, HANDLE * phStorage);
+bool   WINAPI CascOpenStorage(LPCTSTR szParams, DWORD dwLocaleMask, HANDLE * phStorage);
+bool   WINAPI CascOpenOnlineStorage(LPCTSTR szParams, DWORD dwLocaleMask, HANDLE * phStorage);
+bool   WINAPI CascGetStorageInfo(HANDLE hStorage, CASC_STORAGE_INFO_CLASS InfoClass, void * pvStorageInfo, size_t cbStorageInfo, size_t * pcbLengthNeeded);
+bool   WINAPI CascCloseStorage(HANDLE hStorage);
 
-bool  WINAPI CascOpenFile(HANDLE hStorage, const void * pvFileName, DWORD dwLocaleFlags, DWORD dwOpenFlags, HANDLE * PtrFileHandle);
-bool  WINAPI CascOpenLocalFile(LPCTSTR szFileName, DWORD dwOpenFlags, HANDLE * PtrFileHandle);
-bool  WINAPI CascGetFileInfo(HANDLE hFile, CASC_FILE_INFO_CLASS InfoClass, void * pvFileInfo, size_t cbFileInfo, size_t * pcbLengthNeeded);
-bool  WINAPI CascGetFileSize64(HANDLE hFile, PULONGLONG PtrFileSize);
-bool  WINAPI CascSetFilePointer64(HANDLE hFile, LONGLONG DistanceToMove, PULONGLONG PtrNewPos, DWORD dwMoveMethod);
-bool  WINAPI CascReadFile(HANDLE hFile, void * lpBuffer, DWORD dwToRead, PDWORD pdwRead);
-bool  WINAPI CascCloseFile(HANDLE hFile);
+bool   WINAPI CascOpenFile(HANDLE hStorage, const void * pvFileName, DWORD dwLocaleFlags, DWORD dwOpenFlags, HANDLE * PtrFileHandle);
+bool   WINAPI CascOpenLocalFile(LPCTSTR szFileName, DWORD dwOpenFlags, HANDLE * PtrFileHandle);
+bool   WINAPI CascGetFileInfo(HANDLE hFile, CASC_FILE_INFO_CLASS InfoClass, void * pvFileInfo, size_t cbFileInfo, size_t * pcbLengthNeeded);
+bool   WINAPI CascSetFileFlags(HANDLE hFile, DWORD dwOpenFlags);
+bool   WINAPI CascGetFileSize64(HANDLE hFile, PULONGLONG PtrFileSize);
+bool   WINAPI CascSetFilePointer64(HANDLE hFile, LONGLONG DistanceToMove, PULONGLONG PtrNewPos, DWORD dwMoveMethod);
+bool   WINAPI CascReadFile(HANDLE hFile, void * lpBuffer, DWORD dwToRead, PDWORD pdwRead);
+bool   WINAPI CascCloseFile(HANDLE hFile);
 
-DWORD WINAPI CascGetFileSize(HANDLE hFile, PDWORD pdwFileSizeHigh);
-DWORD WINAPI CascSetFilePointer(HANDLE hFile, LONG lFilePos, LONG * PtrFilePosHigh, DWORD dwMoveMethod);
+DWORD  WINAPI CascGetFileSize(HANDLE hFile, PDWORD pdwFileSizeHigh);
+DWORD  WINAPI CascSetFilePointer(HANDLE hFile, LONG lFilePos, LONG * PtrFilePosHigh, DWORD dwMoveMethod);
 
 HANDLE WINAPI CascFindFirstFile(HANDLE hStorage, LPCSTR szMask, PCASC_FIND_DATA pFindData, LPCTSTR szListFile);
-bool  WINAPI CascFindNextFile(HANDLE hFind, PCASC_FIND_DATA pFindData);
-bool  WINAPI CascFindClose(HANDLE hFind);
+bool   WINAPI CascFindNextFile(HANDLE hFind, PCASC_FIND_DATA pFindData);
+bool   WINAPI CascFindClose(HANDLE hFind);
+
+bool   WINAPI CascAddEncryptionKey(HANDLE hStorage, ULONGLONG KeyName, LPBYTE Key);
+bool   WINAPI CascAddStringEncryptionKey(HANDLE hStorage, ULONGLONG KeyName, LPCSTR szKey);
+bool   WINAPI CascImportKeysFromString(HANDLE hStorage, LPCSTR szKeyList);
+bool   WINAPI CascImportKeysFromFile(HANDLE hStorage, LPCTSTR szFileName);
+LPBYTE WINAPI CascFindEncryptionKey(HANDLE hStorage, ULONGLONG KeyName);
+bool   WINAPI CascGetNotFoundEncryptionKey(HANDLE hStorage, ULONGLONG * KeyName);
 
 //-----------------------------------------------------------------------------
-// GetLastError/SetLastError support for non-Windows platform
+// CDN Support
 
-#ifndef PLATFORM_WINDOWS
+LPCTSTR WINAPI CascCdnGetDefault();
+LPBYTE  WINAPI CascCdnDownload(LPCTSTR szCdnHostUrl, LPCTSTR szProduct, LPCTSTR szFileName, DWORD * PtrSize);
+void    WINAPI CascCdnFree(void * buffer);
 
-DWORD GetLastError();
-void SetLastError(DWORD dwErrCode);
+//-----------------------------------------------------------------------------
+// Error code support
 
-#endif  // PLATFORM_WINDOWS
+void SetCascError(DWORD dwErrCode);
+DWORD GetCascError();
 
 #ifdef __cplusplus
 }   // extern "C"

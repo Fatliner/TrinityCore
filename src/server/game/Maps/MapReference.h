@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -24,18 +23,15 @@
 class Map;
 class Player;
 
-class MapReference : public Reference<Map, Player>
+class MapReference : public Reference<Map, Player, MapReference>
 {
     protected:
-        void targetObjectBuildLink() override;
-        void targetObjectDestroyLink() override;
-        void sourceObjectDestroyLink() override;
+        friend Reference<Map, Player, MapReference>;
+        void targetObjectBuildLink();
+        void targetObjectDestroyLink();
+        void sourceObjectDestroyLink();
     public:
-        MapReference() : Reference<Map, Player>() { }
+        MapReference() = default;
         ~MapReference() { unlink(); }
-        MapReference* next() { return (MapReference*)Reference<Map, Player>::next(); }
-        MapReference const* next() const { return (MapReference const*)Reference<Map, Player>::next(); }
-        MapReference* nockeck_prev() { return (MapReference*)Reference<Map, Player>::nocheck_prev(); }
-        MapReference const* nocheck_prev() const { return (MapReference const*)Reference<Map, Player>::nocheck_prev(); }
 };
 #endif

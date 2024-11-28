@@ -74,19 +74,6 @@ class TC_PROTO_API ChallengeExternalRequest : public ::google::protobuf::Message
   // implements Message ----------------------------------------------
 
   ChallengeExternalRequest* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const ChallengeExternalRequest& from);
-  void MergeFrom(const ChallengeExternalRequest& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -188,19 +175,6 @@ class TC_PROTO_API ChallengeExternalResult : public ::google::protobuf::Message 
   // implements Message ----------------------------------------------
 
   ChallengeExternalResult* New() const;
-  void CopyFrom(const ::google::protobuf::Message& from);
-  void MergeFrom(const ::google::protobuf::Message& from);
-  void CopyFrom(const ChallengeExternalResult& from);
-  void MergeFrom(const ChallengeExternalResult& from);
-  void Clear();
-  bool IsInitialized() const;
-
-  int ByteSize() const;
-  bool MergePartialFromCodedStream(
-      ::google::protobuf::io::CodedInputStream* input);
-  void SerializeWithCachedSizes(
-      ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -259,6 +233,10 @@ class TC_PROTO_API ChallengeListener : public ServiceBase
  public:
 
   explicit ChallengeListener(bool use_original_hash);
+  ChallengeListener(ChallengeListener const&) = delete;
+  ChallengeListener(ChallengeListener&&) = delete;
+  ChallengeListener& operator=(ChallengeListener const&) = delete;
+  ChallengeListener& operator=(ChallengeListener&&) = delete;
   virtual ~ChallengeListener();
 
   typedef std::integral_constant<uint32, 0xBBDA171Fu> OriginalHash;
@@ -267,25 +245,13 @@ class TC_PROTO_API ChallengeListener : public ServiceBase
   static google::protobuf::ServiceDescriptor const* descriptor();
 
   // client methods --------------------------------------------------
+  void OnExternalChallenge(::bgs::protocol::challenge::v1::ChallengeExternalRequest const* request, bool client = false, bool server = false);
+  void OnExternalChallengeResult(::bgs::protocol::challenge::v1::ChallengeExternalResult const* request, bool client = false, bool server = false);
 
-  void OnExternalChallenge(::bgs::protocol::challenge::v1::ChallengeExternalRequest const* request);
-  void OnExternalChallengeResult(::bgs::protocol::challenge::v1::ChallengeExternalResult const* request);
-  // server methods --------------------------------------------------
-
-  void CallServerMethod(uint32 token, uint32 methodId, MessageBuffer buffer) override final;
-
- protected:
-  virtual uint32 HandleOnExternalChallenge(::bgs::protocol::challenge::v1::ChallengeExternalRequest const* request);
-  virtual uint32 HandleOnExternalChallengeResult(::bgs::protocol::challenge::v1::ChallengeExternalResult const* request);
-
- private:
-  uint32 service_hash_;
-
-  GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ChallengeListener);
+  void CallServerMethod(uint32 token, uint32 methodId, MessageBuffer buffer) final;
 };
 
 // ===================================================================
-
 
 // ===================================================================
 
@@ -623,7 +589,6 @@ inline void ChallengeExternalResult::set_passed(bool value) {
   // @@protoc_insertion_point(field_set:bgs.protocol.challenge.v1.ChallengeExternalResult.passed)
 }
 
-
 // @@protoc_insertion_point(namespace_scope)
 
 }  // namespace v1
@@ -634,8 +599,6 @@ inline void ChallengeExternalResult::set_passed(bool value) {
 #ifndef SWIG
 namespace google {
 namespace protobuf {
-
-
 }  // namespace google
 }  // namespace protobuf
 #endif  // SWIG

@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -51,9 +50,9 @@ public:
         return GetStratholmeAI<boss_magistrate_barthilasAI>(creature);
     }
 
-    struct boss_magistrate_barthilasAI : public ScriptedAI
+    struct boss_magistrate_barthilasAI : public BossAI
     {
-        boss_magistrate_barthilasAI(Creature* creature) : ScriptedAI(creature)
+        boss_magistrate_barthilasAI(Creature* creature) : BossAI(creature, BOSS_MAGISTRATE_BARTHILAS)
         {
             Initialize();
         }
@@ -75,6 +74,8 @@ public:
 
         void Reset() override
         {
+            BossAI::Reset();
+
             Initialize();
 
             if (me->IsAlive())
@@ -83,21 +84,11 @@ public:
                 me->SetDisplayId(MODEL_HUMAN);
         }
 
-        void MoveInLineOfSight(Unit* who) override
-
+        void JustDied(Unit* killer) override
         {
-            //nothing to see here yet
+            BossAI::JustDied(killer);
 
-            ScriptedAI::MoveInLineOfSight(who);
-        }
-
-        void JustDied(Unit* /*killer*/) override
-        {
             me->SetDisplayId(MODEL_HUMAN);
-        }
-
-        void EnterCombat(Unit* /*who*/) override
-        {
         }
 
         void UpdateAI(uint32 diff) override
@@ -136,8 +127,6 @@ public:
                 DoCastVictim(SPELL_MIGHTYBLOW);
                 MightyBlow_Timer = 20000;
             } else MightyBlow_Timer -= diff;
-
-            DoMeleeAttackIfReady();
         }
     };
 

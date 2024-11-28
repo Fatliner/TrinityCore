@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,23 +19,41 @@
 #define TRINITY_RANDOMMOTIONGENERATOR_H
 
 #include "MovementGenerator.h"
+#include "Optional.h"
+#include "Position.h"
+#include "Timer.h"
+
+class PathGenerator;
 
 template<class T>
-class RandomMovementGenerator : public MovementGeneratorMedium< T, RandomMovementGenerator<T> >
+class RandomMovementGenerator : public MovementGeneratorMedium<T, RandomMovementGenerator<T>>
 {
     public:
-        RandomMovementGenerator(float spawn_dist = 0.0f) : i_nextMoveTime(0), wander_distance(spawn_dist) { }
+        explicit RandomMovementGenerator(float distance = 0.0f, Optional<Milliseconds> duration = {},
+            Optional<Scripting::v2::ActionResultSetter<MovementStopReason>>&& scriptResult = {});
 
-        void _setRandomLocation(T*);
+        MovementGeneratorType GetMovementGeneratorType() const override;
+
+        void Pause(uint32 timer) override;
+        void Resume(uint32 overrideTimer) override;
+
         void DoInitialize(T*);
-        void DoFinalize(T*);
         void DoReset(T*);
-        bool DoUpdate(T*, const uint32);
-        bool GetResetPos(T*, float& x, float& y, float& z);
-        MovementGeneratorType GetMovementGeneratorType() const override { return RANDOM_MOTION_TYPE; }
-    private:
-        TimeTrackerSmall i_nextMoveTime;
+        bool DoUpdate(T*, uint32);
+        void DoDeactivate(T*);
+        void DoFinalize(T*, bool, bool);
 
-        float wander_distance;
+        void UnitSpeedChanged() override { RandomMovementGenerator<T>::AddFlag(MOVEMENTGENERATOR_FLAG_SPEED_UPDATE_PENDING); }
+
+    private:
+        void SetRandomLocation(T*);
+
+        std::unique_ptr<PathGenerator> _path;
+        TimeTracker _timer;
+        Optional<TimeTracker> _duration;
+        Position _reference;
+        float _wanderDistance;
+        uint8 _wanderSteps;
 };
+
 #endif

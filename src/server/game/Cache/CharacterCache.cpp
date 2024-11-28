@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <http://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -19,10 +19,10 @@
 #include "ArenaTeam.h"
 #include "DatabaseEnv.h"
 #include "Log.h"
+#include "MiscPackets.h"
 #include "Player.h"
 #include "Timer.h"
 #include "World.h"
-#include "WorldPacket.h"
 #include <unordered_map>
 
 namespace
@@ -81,11 +81,11 @@ void CharacterCache::LoadCharacterCacheStorage()
     do
     {
         Field* fields = result->Fetch();
-        AddCharacterCacheEntry(ObjectGuid::Create<HighGuid::Player>(fields[0].GetUInt32()) /*guid*/, fields[2].GetUInt32() /*account*/, fields[1].GetString() /*name*/,
+        AddCharacterCacheEntry(ObjectGuid::Create<HighGuid::Player>(fields[0].GetUInt64()) /*guid*/, fields[2].GetUInt32() /*account*/, fields[1].GetString() /*name*/,
             fields[4].GetUInt8() /*gender*/, fields[3].GetUInt8() /*race*/, fields[5].GetUInt8() /*class*/, fields[6].GetUInt8() /*level*/, fields[7].GetUInt32() != 0);
     } while (result->NextRow());
 
-    TC_LOG_INFO("server.loading", "Loaded character infos for " SZFMTD " characters in %u ms", _characterCacheStore.size(), GetMSTimeDiffToNow(oldMSTime));
+    TC_LOG_INFO("server.loading", "Loaded character infos for {} characters in {} ms", _characterCacheStore.size(), GetMSTimeDiffToNow(oldMSTime));
 }
 
 /*
@@ -107,7 +107,8 @@ void CharacterCache::AddCharacterCacheEntry(ObjectGuid const& guid, uint32 accou
     data.IsDeleted = isDeleted;
 
     // Fill Name to Guid Store
-    _characterCacheByNameStore[name] = &data;
+    if (!isDeleted)
+        _characterCacheByNameStore[name] = &data;
 }
 
 void CharacterCache::DeleteCharacterCacheEntry(ObjectGuid const& guid, std::string const& name)
@@ -116,7 +117,7 @@ void CharacterCache::DeleteCharacterCacheEntry(ObjectGuid const& guid, std::stri
     _characterCacheByNameStore.erase(name);
 }
 
-void CharacterCache::UpdateCharacterData(ObjectGuid const& guid, std::string const& name, uint8* gender /*= nullptr*/, uint8* race /*= nullptr*/)
+void CharacterCache::UpdateCharacterData(ObjectGuid const& guid, std::string const& name, Optional<uint8> gender /*= {}*/, Optional<uint8> race /*= {}*/)
 {
     auto itr = _characterCacheStore.find(guid);
     if (itr == _characterCacheStore.end())
@@ -131,13 +132,22 @@ void CharacterCache::UpdateCharacterData(ObjectGuid const& guid, std::string con
     if (race)
         itr->second.Race = *race;
 
-    WorldPacket data(SMSG_INVALIDATE_PLAYER, 8);
-    data << guid;
-    sWorld->SendGlobalMessage(&data);
+    WorldPackets::Misc::InvalidatePlayer invalidatePlayer;
+    invalidatePlayer.Guid = guid;
+    sWorld->SendGlobalMessage(invalidatePlayer.Write());
 
     // Correct name -> pointer storage
     _characterCacheByNameStore.erase(oldName);
     _characterCacheByNameStore[name] = &itr->second;
+}
+
+void CharacterCache::UpdateCharacterGender(ObjectGuid const& guid, uint8 gender)
+{
+    auto itr = _characterCacheStore.find(guid);
+    if (itr == _characterCacheStore.end())
+        return;
+
+    itr->second.Sex = gender;
 }
 
 void CharacterCache::UpdateCharacterLevel(ObjectGuid const& guid, uint8 level)
@@ -173,21 +183,24 @@ void CharacterCache::UpdateCharacterArenaTeamId(ObjectGuid const& guid, uint8 sl
     if (itr == _characterCacheStore.end())
         return;
 
+    ASSERT(slot < 3);
     itr->second.ArenaTeamId[slot] = arenaTeamId;
 }
 
-void CharacterCache::UpdateCharacterInfoDeleted(ObjectGuid const& guid, bool deleted, std::string const* name /*=nullptr*/)
+void CharacterCache::UpdateCharacterInfoDeleted(ObjectGuid const& guid, bool deleted, std::string const& name /*=nullptr*/)
 {
     auto itr = _characterCacheStore.find(guid);
     if (itr == _characterCacheStore.end())
         return;
 
+    if (deleted)
+        _characterCacheByNameStore.erase(itr->second.Name);
+    else
+        _characterCacheByNameStore[name] = &itr->second;
+
+    itr->second.Name = name;
     itr->second.IsDeleted = deleted;
-
-    if (name)
-        itr->second.Name = *name;
 }
-
 
 /*
 Getters
@@ -234,11 +247,11 @@ bool CharacterCache::GetCharacterNameByGuid(ObjectGuid guid, std::string& name) 
     return true;
 }
 
-uint32 CharacterCache::GetCharacterTeamByGuid(ObjectGuid guid) const
+Team CharacterCache::GetCharacterTeamByGuid(ObjectGuid guid) const
 {
     auto itr = _characterCacheStore.find(guid);
     if (itr == _characterCacheStore.end())
-        return 0;
+        return TEAM_OTHER;
 
     return Player::TeamForRace(itr->second.Race);
 }
@@ -285,7 +298,9 @@ uint32 CharacterCache::GetCharacterArenaTeamIdByGuid(ObjectGuid guid, uint8 type
     if (itr == _characterCacheStore.end())
         return 0;
 
-    return itr->second.ArenaTeamId[ArenaTeam::GetSlotByType(type)];
+    uint8 slot = ArenaTeam::GetSlotByType(type);
+    ASSERT(slot < 3);
+    return itr->second.ArenaTeamId[slot];
 }
 
 bool CharacterCache::GetCharacterNameAndClassByGUID(ObjectGuid guid, std::string& name, uint8& _class) const

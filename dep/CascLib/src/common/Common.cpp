@@ -59,24 +59,42 @@ unsigned char AsciiToUpperTable_BkSlash[256] =
     0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF
 };
 
+// Converts ASCII characters to hexa digit
+unsigned char AsciiToHexTable[128] =
+{
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+};
+
 unsigned char IntToHexChar[] = "0123456789abcdef";
 
 //-----------------------------------------------------------------------------
-// GetLastError/SetLastError support for non-Windows platform
+// GetCascError/SetCascError support for non-Windows platform
 
-#ifndef PLATFORM_WINDOWS
 static DWORD dwLastError = ERROR_SUCCESS;
 
-DWORD GetLastError()
+DWORD GetCascError()
 {
+#ifdef CASCLIB_PLATFORM_WINDOWS
+    return GetLastError();
+#else
     return dwLastError;
+#endif
 }
 
-void SetLastError(DWORD dwErrCode)
+void SetCascError(DWORD dwErrCode)
 {
+#ifdef CASCLIB_PLATFORM_WINDOWS
+    SetLastError(dwErrCode);
+#endif
     dwLastError = dwErrCode;
 }
-#endif
 
 //-----------------------------------------------------------------------------
 // Linear data stream manipulation
@@ -189,21 +207,6 @@ LPBYTE CaptureEncodedKey(LPBYTE pbEKey, LPBYTE pbData, BYTE EKeyLength)
     return pbData + EKeyLength;
 }
 
-LPBYTE CaptureArray_(LPBYTE pbDataPtr, LPBYTE pbDataEnd, LPBYTE * PtrArray, size_t ItemSize, size_t ItemCount)
-{
-    size_t ArraySize = ItemSize * ItemCount;
-
-    // Is there enough data?
-    if((pbDataPtr + ArraySize) > pbDataEnd)
-        return NULL;
-
-    // Give data
-    PtrArray[0] = pbDataPtr;
-
-    // Return the pointer to data following after the array
-    return pbDataPtr + ArraySize;
-}
-
 //-----------------------------------------------------------------------------
 // String copying and conversion
 
@@ -211,10 +214,10 @@ void CascStrCopy(char * szTarget, size_t cchTarget, const char * szSource, size_
 {
     size_t cchToCopy;
 
-    if (cchTarget > 0)
+    if(cchTarget > 0)
     {
         // Make sure we know the length
-        if (cchSource == -1)
+        if(cchSource == -1)
             cchSource = strlen(szSource);
         cchToCopy = CASCLIB_MIN((cchTarget - 1), cchSource);
 
@@ -228,10 +231,10 @@ void CascStrCopy(char * szTarget, size_t cchTarget, const wchar_t * szSource, si
 {
     size_t cchToCopy;
 
-    if (cchTarget > 0)
+    if(cchTarget > 0)
     {
         // Make sure we know the length
-        if (cchSource == -1)
+        if(cchSource == -1)
             cchSource = wcslen(szSource);
         cchToCopy = CASCLIB_MIN((cchTarget - 1), cchSource);
 
@@ -244,10 +247,10 @@ void CascStrCopy(wchar_t * szTarget, size_t cchTarget, const char * szSource, si
 {
     size_t cchToCopy;
 
-    if (cchTarget > 0)
+    if(cchTarget > 0)
     {
         // Make sure we know the length
-        if (cchSource == -1)
+        if(cchSource == -1)
             cchSource = strlen(szSource);
         cchToCopy = CASCLIB_MIN((cchTarget - 1), cchSource);
 
@@ -260,10 +263,10 @@ void CascStrCopy(wchar_t * szTarget, size_t cchTarget, const wchar_t * szSource,
 {
     size_t cchToCopy;
 
-    if (cchTarget > 0)
+    if(cchTarget > 0)
     {
         // Make sure we know the length
-        if (cchSource == -1)
+        if(cchSource == -1)
             cchSource = wcslen(szSource);
         cchToCopy = CASCLIB_MIN((cchTarget - 1), cchSource);
 
@@ -275,44 +278,56 @@ void CascStrCopy(wchar_t * szTarget, size_t cchTarget, const wchar_t * szSource,
 //-----------------------------------------------------------------------------
 // Safe version of s(w)printf
 
-size_t CascStrPrintf(char * buffer, size_t nCount, const char * format, ...)
+size_t CascStrPrintfV(char * buffer, size_t nCount, const char * format, va_list argList)
 {
     char * buffend;
-    va_list argList;
 
-    // Start the argument list
-    va_start(argList, format);
-    
-#ifdef PLATFORM_WINDOWS
+#ifdef CASCLIB_PLATFORM_WINDOWS
     StringCchVPrintfExA(buffer, nCount, &buffend, NULL, 0, format, argList);
-//  buffend = buffer + vsnprintf(buffer, nCount, format, argList);
 #else
     buffend = buffer + vsnprintf(buffer, nCount, format, argList);
 #endif
-    
-    // End the argument list
+
+    return (buffend - buffer);
+}
+
+size_t CascStrPrintf(char * buffer, size_t nCount, const char * format, ...)
+{
+    va_list argList;
+    size_t length;
+
+    // Start the argument list
+    va_start(argList, format);
+    length = CascStrPrintfV(buffer, nCount, format, argList);
     va_end(argList);
+
+    return length;
+}
+
+size_t CascStrPrintfV(wchar_t * buffer, size_t nCount, const wchar_t * format, va_list argList)
+{
+    wchar_t * buffend;
+
+#ifdef CASCLIB_PLATFORM_WINDOWS
+    StringCchVPrintfExW(buffer, nCount, &buffend, NULL, 0, format, argList);
+#else
+    buffend = buffer + vswprintf(buffer, nCount, format, argList);
+#endif
+
     return (buffend - buffer);
 }
 
 size_t CascStrPrintf(wchar_t * buffer, size_t nCount, const wchar_t * format, ...)
 {
-    wchar_t * buffend;
     va_list argList;
+    size_t length;
 
     // Start the argument list
     va_start(argList, format);
-
-#ifdef PLATFORM_WINDOWS
-    StringCchVPrintfExW(buffer, nCount, &buffend, NULL, 0, format, argList);
-//  buffend = buffer + vswprintf(buffer, nCount, format, argList);
-#else
-    buffend = buffer + vswprintf(buffer, nCount, format, argList);
-#endif
-
-    // End the argument list
+    length = CascStrPrintfV(buffer, nCount, format, argList);
     va_end(argList);
-    return (buffend - buffer);
+
+    return length;
 }
 
 //-----------------------------------------------------------------------------
@@ -356,85 +371,46 @@ wchar_t * CascNewStr(const wchar_t * szString, size_t nCharsToReserve)
     return szNewString;
 }
 
-//-----------------------------------------------------------------------------
-// String merging
-
-LPTSTR GetLastPathPart(LPTSTR szWorkPath)
+LPSTR CascNewStrT2A(LPCTSTR szString, size_t nCharsToReserve)
 {
-    size_t nLength = _tcslen(szWorkPath);
-
-    // Go one character back
-    if(nLength > 0)
-        nLength--;
-
-    // Cut ending (back)slashes, if any
-    while(nLength > 0 && (szWorkPath[nLength] == _T('\\') || szWorkPath[nLength] == _T('/')))
-        nLength--;
-
-    // Cut the last path part
-    while(nLength > 0)
-    {
-        // End of path?
-        if(szWorkPath[nLength] == _T('\\') || szWorkPath[nLength] == _T('/'))
-        {
-            return szWorkPath + nLength;
-        }
-
-        // Go one character back
-        nLength--;
-    }
-
-    return NULL;
-}
-
-bool CutLastPathPart(TCHAR * szWorkPath)
-{
-    // Get the last part of the path
-    szWorkPath = GetLastPathPart(szWorkPath);
-    if(szWorkPath == NULL)
-        return false;
-
-    szWorkPath[0] = 0;
-    return true;
-}
-
-size_t CombinePath(LPTSTR szBuffer, size_t nMaxChars, char chSeparator, va_list argList)
-{
-    CASC_PATH<TCHAR> Path(chSeparator);
-    LPCTSTR szFragment;
-    bool bWithSeparator = false;
-
-    // Combine all parts of the path here
-    while((szFragment = va_arg(argList, LPTSTR)) != NULL)
-    {
-        Path.AppendString(szFragment, bWithSeparator);
-        bWithSeparator = true;
-    }
-
-    return Path.Copy(szBuffer, nMaxChars);
-}
-
-size_t CombinePath(LPTSTR szBuffer, size_t nMaxChars, char chSeparator, ...)
-{
-    va_list argList;
+    LPSTR szNewString = NULL;
     size_t nLength;
 
-    va_start(argList, chSeparator);
-    nLength = CombinePath(szBuffer, nMaxChars, chSeparator, argList);
-    va_end(argList);
+    if(szString != NULL)
+    {
+        nLength = _tcslen(szString);
+        szNewString = CASC_ALLOC<char>(nLength + nCharsToReserve + 1);
+        if(szNewString != NULL)
+        {
+            CascStrCopy(szNewString, nLength + nCharsToReserve + 1, szString, nLength);
+//          szNewString[nLength] = 0;
+        }
+    }
 
-    return nLength;
+    return szNewString;
 }
 
-LPTSTR CombinePath(LPCTSTR szDirectory, LPCTSTR szSubDir)
+LPTSTR CascNewStrA2T(LPCSTR szString, size_t nCharsToReserve)
 {
-    CASC_PATH<TCHAR> Path(PATH_SEP_CHAR);
+    LPTSTR szNewString = NULL;
+    size_t nLength;
 
-    // Merge the path
-    Path.AppendString(szDirectory, false);
-    Path.AppendString(szSubDir, true);
-    return Path.New();
+    if(szString != NULL)
+    {
+        nLength = strlen(szString);
+        szNewString = CASC_ALLOC<TCHAR>(nLength + nCharsToReserve + 1);
+        if(szNewString != NULL)
+        {
+            CascStrCopy(szNewString, nLength + nCharsToReserve + 1, szString, nLength);
+//          szNewString[nLength] = 0;
+        }
+    }
+
+    return szNewString;
 }
+
+//-----------------------------------------------------------------------------
+// String normalization
 
 size_t NormalizeFileName(const unsigned char * NormTable, char * szNormName, const char * szFileName, size_t cchMaxChars)
 {
@@ -482,103 +458,6 @@ ULONGLONG CalcFileNameHash(const char * szFileName)
     return CalcNormNameHash(szNormName, nLength);
 }
 
-int ConvertDigitToInt32(const TCHAR * szString, PDWORD PtrValue)
-{
-    BYTE Digit;
-
-    Digit = (BYTE)(AsciiToUpperTable_BkSlash[szString[0]] - _T('0'));
-    if(Digit > 9)
-        Digit -= 'A' - '9' - 1;
-
-    PtrValue[0] = Digit;
-    return (Digit > 0x0F) ? ERROR_BAD_FORMAT : ERROR_SUCCESS;
-}
-
-int ConvertStringToInt08(const char * szString, PDWORD PtrValue)
-{
-    BYTE DigitOne = AsciiToUpperTable_BkSlash[szString[0]] - '0';
-    BYTE DigitTwo = AsciiToUpperTable_BkSlash[szString[1]] - '0';
-
-    // Fix the digits
-    if(DigitOne > 9)
-        DigitOne -= 'A' - '9' - 1;
-    if(DigitTwo > 9)
-        DigitTwo -= 'A' - '9' - 1;
-
-    // Combine them into a value
-    PtrValue[0] = (DigitOne << 0x04) | DigitTwo;
-    return (DigitOne <= 0x0F && DigitTwo <= 0x0F) ? ERROR_SUCCESS : ERROR_BAD_FORMAT;
-}
-
-int ConvertStringToInt32(const TCHAR * szString, size_t nMaxDigits, PDWORD PtrValue)
-{
-    // The number of digits must be even
-    assert((nMaxDigits & 0x01) == 0);
-    assert(nMaxDigits <= 8);
-
-    // Prepare the variables
-    PtrValue[0] = 0;
-    nMaxDigits >>= 1;
-
-    // Convert the string up to the number of digits
-    for(size_t i = 0; i < nMaxDigits; i++)
-    {
-        BYTE DigitOne;
-        BYTE DigitTwo;
-
-        DigitOne = (BYTE)(AsciiToUpperTable_BkSlash[szString[0]] - _T('0'));
-        if(DigitOne > 9)
-            DigitOne -= 'A' - '9' - 1;
-
-        DigitTwo = (BYTE)(AsciiToUpperTable_BkSlash[szString[1]] - _T('0'));
-        if(DigitTwo > 9)
-            DigitTwo -= 'A' - '9' - 1;
-
-        if(DigitOne > 0x0F || DigitTwo > 0x0F)
-            return ERROR_BAD_FORMAT;
-
-        PtrValue[0] = (PtrValue[0] << 0x08) | (DigitOne << 0x04) | DigitTwo;
-        szString += 2;
-    }
-
-    return ERROR_SUCCESS;
-}
-
-// Converts string blob to binary blob.
-int ConvertStringToBinary(
-    const char * szString,
-    size_t nMaxDigits,
-    LPBYTE pbBinary)
-{
-    const char * szStringEnd = szString + nMaxDigits;
-    DWORD dwCounter = 0;
-    BYTE DigitValue;
-    BYTE ByteValue = 0;
-
-    // Convert the string
-    while(szString < szStringEnd)
-    {
-        // Retrieve the digit converted to hexa
-        DigitValue = (BYTE)(AsciiToUpperTable_BkSlash[szString[0]] - '0');
-        if(DigitValue > 9)
-            DigitValue -= 'A' - '9' - 1;
-        if(DigitValue > 0x0F)
-            return ERROR_BAD_FORMAT;
-
-        // Insert the digit to the binary buffer
-        ByteValue = (ByteValue << 0x04) | DigitValue;
-        dwCounter++;
-
-        // If we reached the second digit, it means that we need
-        // to flush the byte value and move on
-        if((dwCounter & 0x01) == 0)
-            *pbBinary++ = ByteValue;
-        szString++;
-    }
-
-    return ERROR_SUCCESS;
-}
-
 //-----------------------------------------------------------------------------
 // File name utilities
 
@@ -610,7 +489,7 @@ bool IsFileDataIdName(const char * szFileName, DWORD & FileDataId)
     if(!strncmp(szFileName, "FILE", 4) && strlen(szFileName) >= 0x0C)
     {
         // Convert the hexadecimal number to integer
-        if(ConvertStringToBinary(szFileName+4, 8, BinaryValue) == ERROR_SUCCESS)
+        if(BinaryFromString(szFileName+4, 8, BinaryValue) == ERROR_SUCCESS)
         {
             // Must be followed by an extension or end-of-string
             if(szFileName[0x0C] == 0 || szFileName[0x0C] == '.')
@@ -630,7 +509,7 @@ bool IsFileCKeyEKeyName(const char * szFileName, LPBYTE PtrKeyBuffer)
 
     if(nLength == MD5_STRING_SIZE)
     {
-        if(ConvertStringToBinary(szFileName, MD5_STRING_SIZE, PtrKeyBuffer) == ERROR_SUCCESS)
+        if(BinaryFromString(szFileName, MD5_STRING_SIZE, PtrKeyBuffer) == ERROR_SUCCESS)
         {
             return true;
         }
@@ -704,7 +583,7 @@ bool CascIsValidMD5(LPBYTE pbMd5)
     return (Int32Array[0] | Int32Array[1] | Int32Array[2] | Int32Array[3]) ? true : false;
 }
 
-bool CascVerifyDataBlockHash(void * pvDataBlock, DWORD cbDataBlock, LPBYTE expected_md5)
+bool CascVerifyDataBlockHash(void * pvDataBlock, size_t cbDataBlock, LPBYTE expected_md5)
 {
     MD5_CTX md5_ctx;
     BYTE md5_digest[MD5_HASH_SIZE];
@@ -715,18 +594,27 @@ bool CascVerifyDataBlockHash(void * pvDataBlock, DWORD cbDataBlock, LPBYTE expec
 
     // Calculate the MD5 of the data block
     MD5_Init(&md5_ctx);
-    MD5_Update(&md5_ctx, pvDataBlock, cbDataBlock);
+    MD5_Update(&md5_ctx, pvDataBlock, (unsigned long)(cbDataBlock));
     MD5_Final(md5_digest, &md5_ctx);
 
     // Does the MD5's match?
     return (memcmp(md5_digest, expected_md5, MD5_HASH_SIZE) == 0);
 }
 
-void CascCalculateDataBlockHash(void * pvDataBlock, DWORD cbDataBlock, LPBYTE md5_hash)
+void CascHash_MD5(const void * pvDataBlock, size_t cbDataBlock, LPBYTE md5_hash)
 {
     MD5_CTX md5_ctx;
 
     MD5_Init(&md5_ctx);
-    MD5_Update(&md5_ctx, pvDataBlock, cbDataBlock);
+    MD5_Update(&md5_ctx, pvDataBlock, (unsigned long)(cbDataBlock));
     MD5_Final(md5_hash, &md5_ctx);
+}
+
+void CascHash_SHA1(const void * pvDataBlock, size_t cbDataBlock, LPBYTE sha1_hash)
+{
+    SHA1_CTX sha1_ctx;
+
+    SHA1_Init(&sha1_ctx);
+    SHA1_Update(&sha1_ctx, pvDataBlock, (u32)(cbDataBlock));
+    SHA1_Final(&sha1_ctx, sha1_hash);
 }

@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -24,7 +23,8 @@
 
 #include <G3D/Array.h>
 #include <G3D/Vector3.h>
-#include <G3D/Matrix3.h>
+
+enum class map_liquidHeaderTypeFlags : uint8;
 
 namespace MMAP
 {
@@ -58,6 +58,19 @@ namespace MMAP
     // contrib/extractor/system.cpp
     // src/game/Map.cpp
 
+    struct OffMeshData
+    {
+        uint32 MapId;
+        uint32 TileX;
+        uint32 TileY;
+        float From[3];
+        float To[3];
+        bool Bidirectional;
+        float Radius;
+        uint8 AreaId;
+        uint16 Flags;
+    };
+
     struct MeshData
     {
         G3D::Array<float> solidVerts;
@@ -83,16 +96,16 @@ namespace MMAP
 
             void loadMap(uint32 mapID, uint32 tileX, uint32 tileY, MeshData &meshData);
             bool loadVMap(uint32 mapID, uint32 tileX, uint32 tileY, MeshData &meshData);
-            void loadOffMeshConnections(uint32 mapID, uint32 tileX, uint32 tileY, MeshData &meshData, const char* offMeshFilePath);
+            void loadOffMeshConnections(uint32 mapID, uint32 tileX, uint32 tileY, MeshData& meshData, std::vector<OffMeshData> const& offMeshConnections);
 
-            bool usesLiquids() { return !m_skipLiquid; }
+            bool usesLiquids() const { return !m_skipLiquid; }
 
             // vert and triangle methods
-            static void transform(std::vector<G3D::Vector3> &original, std::vector<G3D::Vector3> &transformed,
-                float scale, G3D::Matrix3 &rotation, G3D::Vector3 &position);
-            static void copyVertices(std::vector<G3D::Vector3> &source, G3D::Array<float> &dest);
-            static void copyIndices(std::vector<VMAP::MeshTriangle> &source, G3D::Array<int> &dest, int offest, bool flip);
-            static void copyIndices(G3D::Array<int> &src, G3D::Array<int> &dest, int offset);
+            static void transform(std::vector<G3D::Vector3> const& source, std::vector<G3D::Vector3>& transformed,
+                float scale, G3D::Matrix3 const& rotation, G3D::Vector3 const& position);
+            static void copyVertices(std::vector<G3D::Vector3> const& source, G3D::Array<float>& dest);
+            static void copyIndices(std::vector<VMAP::MeshTriangle> const& source, G3D::Array<int>& dest, int offset, bool flip);
+            static void copyIndices(G3D::Array<int> const& source, G3D::Array<int>& dest, int offset);
             static void cleanVertices(G3D::Array<float> &verts, G3D::Array<int> &tris);
         private:
             /// Loads a portion of a map's terrain
@@ -120,11 +133,11 @@ namespace MMAP
             void getLiquidCoord(int index, int index2, float xOffset, float yOffset, float* coord, float* v);
 
             /// Get the liquid type for a specific position
-            uint8 getLiquidType(int square, const uint8 liquid_type[16][16]);
+            map_liquidHeaderTypeFlags getLiquidType(int square, map_liquidHeaderTypeFlags const (&liquid_type)[16][16]);
 
             // hide parameterless and copy constructor
-            TerrainBuilder();
-            TerrainBuilder(const TerrainBuilder &tb);
+            TerrainBuilder() = delete;
+            TerrainBuilder(TerrainBuilder const& tb) = delete;
     };
 }
 

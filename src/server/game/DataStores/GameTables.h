@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,10 +22,7 @@
 #include "Common.h"
 #include <vector>
 
-struct GtArmorMitigationByLvlEntry
-{
-    float Mitigation = 0.0f;
-};
+enum InventoryType : uint8;
 
 struct GtArtifactKnowledgeMultiplierEntry
 {
@@ -57,6 +54,14 @@ struct GtBaseMPEntry
     float DeathKnight = 0.0f;
     float Monk = 0.0f;
     float DemonHunter = 0.0f;
+    float Evoker = 0.0f;
+    float Adventurer = 0.0f;
+};
+
+struct GtBattlePetXPEntry
+{
+    float Wins = 0.0f;
+    float Xp = 0.0f;
 };
 
 struct GtCombatRatingsEntry
@@ -72,8 +77,8 @@ struct GtCombatRatingsEntry
     float CritMelee = 0.0f;
     float CritRanged = 0.0f;
     float CritSpell = 0.0f;
-    float MultiStrike = 0.0f;
-    float Readiness = 0.0f;
+    float Corruption = 0.0f;
+    float CorruptionResistance = 0.0f;
     float Speed = 0.0f;
     float ResilienceCritTaken = 0.0f;
     float ResiliencePlayerDamage = 0.0f;
@@ -113,41 +118,9 @@ struct GtItemSocketCostPerLevelEntry
     float SocketCost = 0.0f;
 };
 
-struct GtNpcDamageByClassEntry
-{
-    float Rogue = 0.0f;
-    float Druid = 0.0f;
-    float Hunter = 0.0f;
-    float Mage = 0.0f;
-    float Paladin = 0.0f;
-    float Priest = 0.0f;
-    float Shaman = 0.0f;
-    float Warlock = 0.0f;
-    float Warrior = 0.0f;
-    float DeathKnight = 0.0f;
-    float Monk = 0.0f;
-    float DemonHunter = 0.0f;
-};
-
 struct GtNpcManaCostScalerEntry
 {
     float Scaler = 0.0f;
-};
-
-struct GtNpcTotalHpEntry
-{
-    float Rogue = 0.0f;
-    float Druid = 0.0f;
-    float Hunter = 0.0f;
-    float Mage = 0.0f;
-    float Paladin = 0.0f;
-    float Priest = 0.0f;
-    float Shaman = 0.0f;
-    float Warlock = 0.0f;
-    float Warrior = 0.0f;
-    float DeathKnight = 0.0f;
-    float Monk = 0.0f;
-    float DemonHunter = 0.0f;
 };
 
 struct GtSpellScalingEntry
@@ -164,6 +137,8 @@ struct GtSpellScalingEntry
     float DeathKnight = 0.0f;
     float Monk = 0.0f;
     float DemonHunter = 0.0f;
+    float Evoker = 0.0f;
+    float Adventurer = 0.0f;
     float Item = 0.0f;
     float Consumable = 0.0f;
     float Gem1 = 0.0f;
@@ -172,6 +147,15 @@ struct GtSpellScalingEntry
     float Health = 0.0f;
     float DamageReplaceStat = 0.0f;
     float DamageSecondary = 0.0f;
+    float ManaConsumable = 0.0f;
+};
+
+struct GtStaminaMultByILvl
+{
+    float ArmorMultiplier = 0.0f;
+    float WeaponMultiplier = 0.0f;
+    float TrinketMultiplier = 0.0f;
+    float JewelryMultiplier = 0.0f;
 };
 
 struct GtXpEntry
@@ -203,19 +187,18 @@ private:
     std::vector<T> _data;
 };
 
-TC_GAME_API extern GameTable<GtArmorMitigationByLvlEntry>           sArmorMitigationByLvlGameTable;
 TC_GAME_API extern GameTable<GtArtifactKnowledgeMultiplierEntry>    sArtifactKnowledgeMultiplierGameTable;
 TC_GAME_API extern GameTable<GtArtifactLevelXPEntry>                sArtifactLevelXPGameTable;
 TC_GAME_API extern GameTable<GtBarberShopCostBaseEntry>             sBarberShopCostBaseGameTable;
 TC_GAME_API extern GameTable<GtBaseMPEntry>                         sBaseMPGameTable;
+TC_GAME_API extern GameTable<GtBattlePetXPEntry>                    sBattlePetXPGameTable;
 TC_GAME_API extern GameTable<GtCombatRatingsEntry>                  sCombatRatingsGameTable;
 TC_GAME_API extern GameTable<GtCombatRatingsMultByILvl>             sCombatRatingsMultByILvlGameTable;
 TC_GAME_API extern GameTable<GtHpPerStaEntry>                       sHpPerStaGameTable;
 TC_GAME_API extern GameTable<GtItemSocketCostPerLevelEntry>         sItemSocketCostPerLevelGameTable;
-TC_GAME_API extern GameTable<GtNpcDamageByClassEntry>               sNpcDamageByClassGameTable[MAX_EXPANSIONS];
 TC_GAME_API extern GameTable<GtNpcManaCostScalerEntry>              sNpcManaCostScalerGameTable;
-TC_GAME_API extern GameTable<GtNpcTotalHpEntry>                     sNpcTotalHpGameTable[MAX_EXPANSIONS];
 TC_GAME_API extern GameTable<GtSpellScalingEntry>                   sSpellScalingGameTable;
+TC_GAME_API extern GameTable<GtStaminaMultByILvl>                   sStaminaMultByILvlGameTable;
 TC_GAME_API extern GameTable<GtXpEntry>                             sXpGameTable;
 
 TC_GAME_API void LoadGameTables(std::string const& dataPath);
@@ -249,6 +232,10 @@ inline float GetGameTableColumnForClass(T const* row, int32 class_)
             return row->Druid;
         case CLASS_DEMON_HUNTER:
             return row->DemonHunter;
+        case CLASS_EVOKER:
+            return row->Evoker;
+        case CLASS_ADVENTURER:
+            return row->Adventurer;
         default:
             break;
     }
@@ -284,6 +271,10 @@ inline float GetSpellScalingColumnForClass(GtSpellScalingEntry const* row, int32
             return row->Druid;
         case CLASS_DEMON_HUNTER:
             return row->DemonHunter;
+        case CLASS_EVOKER:
+            return row->Evoker;
+        case CLASS_ADVENTURER:
+            return row->Adventurer;
         case -1:
         case -7:
             return row->Item;
@@ -301,11 +292,21 @@ inline float GetSpellScalingColumnForClass(GtSpellScalingEntry const* row, int32
             return row->DamageReplaceStat;
         case -9:
             return row->DamageSecondary;
+        case -10:
+            return row->ManaConsumable;
         default:
             break;
     }
 
     return 0.0f;
 }
+
+inline float GetBattlePetXPPerLevel(GtBattlePetXPEntry const* row)
+{
+    return row->Wins * row->Xp;
+}
+
+template<class T>
+float GetIlvlStatMultiplier(T const* row, InventoryType invType);
 
 #endif // GameTables_h__

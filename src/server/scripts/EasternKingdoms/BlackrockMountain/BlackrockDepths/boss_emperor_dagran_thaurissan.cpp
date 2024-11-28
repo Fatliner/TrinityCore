@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -39,29 +39,29 @@ enum Events
     EVENT_AVATAROFFLAME                                    = 2
 };
 
+enum Emotes
+{
+    EMOTE_SHAKEN                                           = 0
+};
+
 class boss_emperor_dagran_thaurissan : public CreatureScript
 {
     public:
         boss_emperor_dagran_thaurissan() : CreatureScript("boss_emperor_dagran_thaurissan") { }
 
-        struct boss_draganthaurissanAI : public ScriptedAI
+        struct boss_draganthaurissanAI : public BossAI
         {
-            boss_draganthaurissanAI(Creature* creature) : ScriptedAI(creature)
+            boss_draganthaurissanAI(Creature* creature) : BossAI(creature, BOSS_EMPEROR_DAGRAN_THAURISSAN)
             {
-                _instance = me->GetInstanceScript();
             }
 
-            void Reset() override
+            void JustEngagedWith(Unit* who) override
             {
-                _events.Reset();
-            }
-
-            void EnterCombat(Unit* /*who*/) override
-            {
+                _JustEngagedWith(who);
                 Talk(SAY_AGGRO);
                 me->CallForHelp(VISIBLE_RANGE);
-                _events.ScheduleEvent(EVENT_HANDOFTHAURISSAN, 4000);
-                _events.ScheduleEvent(EVENT_AVATAROFFLAME, 25000);
+                events.ScheduleEvent(EVENT_HANDOFTHAURISSAN, 4s);
+                events.ScheduleEvent(EVENT_AVATAROFFLAME, 25s);
             }
 
             void KilledUnit(Unit* who) override
@@ -72,10 +72,12 @@ class boss_emperor_dagran_thaurissan : public CreatureScript
 
             void JustDied(Unit* /*killer*/) override
             {
-                if (Creature* moira = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(DATA_MOIRA)))
+                _JustDied();
+                if (Creature* moira = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_MOIRA)))
                 {
                     moira->AI()->EnterEvadeMode();
-                    moira->setFaction(35);
+                    moira->SetFaction(FACTION_FRIENDLY);
+                    moira->AI()->Talk(EMOTE_SHAKEN);
                 }
             }
 
@@ -84,32 +86,26 @@ class boss_emperor_dagran_thaurissan : public CreatureScript
                 if (!UpdateVictim())
                     return;
 
-                _events.Update(diff);
+                events.Update(diff);
 
-                while (uint32 eventId = _events.ExecuteEvent())
+                while (uint32 eventId = events.ExecuteEvent())
                 {
                     switch (eventId)
                     {
                         case EVENT_HANDOFTHAURISSAN:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                                 DoCast(target, SPELL_HANDOFTHAURISSAN);
-                            _events.ScheduleEvent(EVENT_HANDOFTHAURISSAN, 5000);
+                            events.ScheduleEvent(EVENT_HANDOFTHAURISSAN, 5s);
                             break;
                         case EVENT_AVATAROFFLAME:
                             DoCastVictim(SPELL_AVATAROFFLAME);
-                            _events.ScheduleEvent(EVENT_AVATAROFFLAME, 18000);
+                            events.ScheduleEvent(EVENT_AVATAROFFLAME, 18s);
                             break;
                         default:
                             break;
                     }
                 }
-
-                DoMeleeAttackIfReady();
             }
-
-        private:
-            InstanceScript* _instance;
-            EventMap _events;
         };
 
         CreatureAI* GetAI(Creature* creature) const override

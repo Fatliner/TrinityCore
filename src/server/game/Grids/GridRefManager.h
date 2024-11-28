@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -25,15 +24,7 @@ template<class OBJECT>
 class GridReference;
 
 template<class OBJECT>
-class GridRefManager : public RefManager<GridRefManager<OBJECT>, OBJECT>
+class GridRefManager : public RefManager<GridReference<OBJECT>>
 {
-    public:
-        typedef LinkedListHead::Iterator< GridReference<OBJECT> > iterator;
-
-        GridReference<OBJECT>* getFirst() { return (GridReference<OBJECT>*)RefManager<GridRefManager<OBJECT>, OBJECT>::getFirst(); }
-        GridReference<OBJECT>* getLast() { return (GridReference<OBJECT>*)RefManager<GridRefManager<OBJECT>, OBJECT>::getLast(); }
-
-        iterator begin() { return iterator(getFirst()); }
-        iterator end() { return iterator(NULL); }
 };
 #endif

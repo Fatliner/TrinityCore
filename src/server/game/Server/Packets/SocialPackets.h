@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -53,7 +53,6 @@ namespace WorldPackets
             uint32 AreaID           = 0;
             uint32 Level            = 0;
             uint32 ClassID          = CLASS_NONE;
-            bool Mobile             = false;
         };
 
         class ContactList final : public ServerPacket
@@ -85,7 +84,6 @@ namespace WorldPackets
             uint32 Level               = 0;
             uint32 AreaID              = 0;
             uint8 FriendResult         = 0; ///< @see enum FriendsResult
-            bool Mobile                = false;
         };
 
         struct QualifiedGUID
@@ -134,6 +132,7 @@ namespace WorldPackets
             void Read() override;
 
             std::string Name;
+            ObjectGuid AccountGUID;
         };
 
         class DelIgnore final : public ClientPacket
@@ -144,6 +143,24 @@ namespace WorldPackets
             void Read() override;
 
             QualifiedGUID Player;
+        };
+
+        class SocialContractRequest final : public ClientPacket
+        {
+        public:
+            SocialContractRequest(WorldPacket&& packet) : ClientPacket(CMSG_SOCIAL_CONTRACT_REQUEST, std::move(packet)) { }
+
+            void Read() override { }
+        };
+
+        class SocialContractRequestResponse final : public ServerPacket
+        {
+        public:
+            SocialContractRequestResponse() : ServerPacket(SMSG_SOCIAL_CONTRACT_REQUEST_RESPONSE, 1) { }
+
+            WorldPacket const* Write() override;
+
+            bool ShowSocialContract = false;
         };
     }
 }

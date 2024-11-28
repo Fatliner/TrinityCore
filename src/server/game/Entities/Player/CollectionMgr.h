@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,7 +20,7 @@
 
 #include "Define.h"
 #include "DatabaseEnvFwd.h"
-#include "EnumClassFlag.h"
+#include "EnumFlag.h"
 #include "ObjectGuid.h"
 #include <boost/dynamic_bitset_fwd.hpp>
 #include <map>
@@ -34,10 +34,12 @@ struct ItemModifiedAppearanceEntry;
 enum HeirloomPlayerFlags
 {
     HEIRLOOM_FLAG_NONE                    = 0x00,
-    HEIRLOOM_FLAG_BONUS_LEVEL_90          = 0x01,
-    HEIRLOOM_FLAG_BONUS_LEVEL_100         = 0x02,
-    HEIRLOOM_FLAG_BONUS_LEVEL_110         = 0x04,
-    HEIRLOOM_FLAG_BONUS_LEVEL_120         = 0x08
+    HEIRLOOM_FLAG_UPGRADE_LEVEL_1         = 0x01,
+    HEIRLOOM_FLAG_UPGRADE_LEVEL_2         = 0x02,
+    HEIRLOOM_FLAG_UPGRADE_LEVEL_3         = 0x04,
+    HEIRLOOM_FLAG_UPGRADE_LEVEL_4         = 0x08,
+    HEIRLOOM_FLAG_UPGRADE_LEVEL_5         = 0x10,
+    HEIRLOOM_FLAG_UPGRADE_LEVEL_6         = 0x20,
 };
 
 enum HeirloomItemFlags
@@ -62,7 +64,9 @@ enum class ToyFlags : uint32
     HasFanfare  = 0x02
 };
 
-typedef std::map<uint32, EnumClassFlag<ToyFlags>> ToyBoxContainer;
+DEFINE_ENUM_FLAG(ToyFlags);
+
+typedef std::map<uint32, EnumFlag<ToyFlags>> ToyBoxContainer;
 typedef std::map<uint32, HeirloomData> HeirloomContainer;
 
 enum MountStatusFlags : uint8
@@ -86,7 +90,7 @@ public:
     // Account-wide toys
     void LoadToys();
     void LoadAccountToys(PreparedQueryResult result);
-    void SaveAccountToys(LoginDatabaseTransaction& trans);
+    void SaveAccountToys(LoginDatabaseTransaction trans);
     void ToySetFavorite(uint32 itemId, bool favorite);
     void ToyClearFanfare(uint32 itemId);
 
@@ -101,20 +105,20 @@ public:
     // Account-wide heirlooms
     void LoadHeirlooms();
     void LoadAccountHeirlooms(PreparedQueryResult result);
-    void SaveAccountHeirlooms(LoginDatabaseTransaction& trans);
+    void SaveAccountHeirlooms(LoginDatabaseTransaction trans);
     void AddHeirloom(uint32 itemId, uint32 flags);
+    bool HasHeirloom(uint32 itemId) const { return _heirlooms.contains(itemId); }
     void UpgradeHeirloom(uint32 itemId, int32 castItem);
     void CheckHeirloomUpgrades(Item* item);
 
     bool UpdateAccountHeirlooms(uint32 itemId, uint32 flags);
-    bool CanApplyHeirloomXpBonus(uint32 itemId, uint32 level);
     uint32 GetHeirloomBonus(uint32 itemId) const;
     HeirloomContainer const& GetAccountHeirlooms() const { return _heirlooms; }
 
     // Account-wide mounts
     void LoadMounts();
     void LoadAccountMounts(PreparedQueryResult result);
-    void SaveAccountMounts(LoginDatabaseTransaction& trans);
+    void SaveAccountMounts(LoginDatabaseTransaction trans);
     bool AddMount(uint32 spellId, MountStatusFlags flags, bool factionMount = false, bool learned = false);
     void MountSetFavorite(uint32 spellId, bool favorite);
     void SendSingleMountUpdate(std::pair<uint32, MountStatusFlags> mount);
@@ -123,7 +127,7 @@ public:
     // Appearances
     void LoadItemAppearances();
     void LoadAccountItemAppearances(PreparedQueryResult knownAppearances, PreparedQueryResult favoriteAppearances);
-    void SaveAccountItemAppearances(LoginDatabaseTransaction& trans);
+    void SaveAccountItemAppearances(LoginDatabaseTransaction trans);
     void AddItemAppearance(Item* item);
     void AddItemAppearance(uint32 itemId, uint32 appearanceModId = 0);
     void AddTransmogSet(uint32 transmogSetId);
@@ -132,6 +136,15 @@ public:
     // returns pair<hasAppearance, isTemporary>
     std::pair<bool, bool> HasItemAppearance(uint32 itemModifiedAppearanceId) const;
     std::unordered_set<ObjectGuid> GetItemsProvidingTemporaryAppearance(uint32 itemModifiedAppearanceId) const;
+    // returns ItemAppearance::ID, not ItemModifiedAppearance::ID
+    std::unordered_set<uint32> GetAppearanceIds() const;
+
+    // Illusions
+    void LoadTransmogIllusions();
+    void LoadAccountTransmogIllusions(PreparedQueryResult knownTransmogIllusions);
+    void SaveAccountTransmogIllusions(LoginDatabaseTransaction trans);
+    void AddTransmogIllusion(uint32 transmogIllusionId);
+    bool HasTransmogIllusion(uint32 transmogIllusionId) const;
 
     enum class FavoriteAppearanceState
     {
@@ -156,6 +169,7 @@ private:
     std::unique_ptr<boost::dynamic_bitset<uint32>> _appearances;
     std::unordered_map<uint32, std::unordered_set<ObjectGuid>> _temporaryAppearances;
     std::unordered_map<uint32, FavoriteAppearanceState> _favoriteAppearances;
+    std::unique_ptr<boost::dynamic_bitset<uint32>> _transmogIllusions;
 };
 
 #endif // CollectionMgr_h__

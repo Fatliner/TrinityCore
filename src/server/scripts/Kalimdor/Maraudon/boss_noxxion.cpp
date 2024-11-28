@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -43,9 +42,9 @@ public:
         return GetMaraudonAI<boss_noxxionAI>(creature);
     }
 
-    struct boss_noxxionAI : public ScriptedAI
+    struct boss_noxxionAI : public BossAI
     {
-        boss_noxxionAI(Creature* creature) : ScriptedAI(creature)
+        boss_noxxionAI(Creature* creature) : BossAI(creature, BOSS_NOXXION)
         {
             Initialize();
         }
@@ -67,14 +66,14 @@ public:
 
         void Reset() override
         {
+            BossAI::Reset();
+
             Initialize();
         }
 
-        void EnterCombat(Unit* /*who*/) override { }
-
         void SummonAdds(Unit* victim)
         {
-            if (Creature* Add = DoSpawnCreature(13456, float(irand(-7, 7)), float(irand(-7, 7)), 0, 0, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 90000))
+            if (Creature* Add = DoSpawnCreature(13456, float(irand(-7, 7)), float(irand(-7, 7)), 0, 0, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 90s))
                 Add->AI()->AttackStart(victim);
         }
 
@@ -83,8 +82,8 @@ public:
             if (Invisible && InvisibleTimer <= diff)
             {
                 //Become visible again
-                me->setFaction(14);
-                me->RemoveUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
+                me->SetFaction(FACTION_MONSTER);
+                me->SetUninteractible(false);
                 //Noxxion model
                 me->SetDisplayId(11172);
                 Invisible = false;
@@ -123,8 +122,8 @@ public:
                 //Interrupt any spell casting
                 //me->m_canMove = true;
                 me->InterruptNonMeleeSpells(false);
-                me->setFaction(35);
-                me->AddUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
+                me->SetFaction(FACTION_FRIENDLY);
+                me->SetUninteractible(true);
                 // Invisible Model
                 me->SetDisplayId(11686);
                 SummonAdds(me->GetVictim());
@@ -138,8 +137,6 @@ public:
                 AddsTimer = 40000;
             }
             else AddsTimer -= diff;
-
-            DoMeleeAttackIfReady();
         }
     };
 };

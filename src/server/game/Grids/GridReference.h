@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -25,28 +24,28 @@ template<class OBJECT>
 class GridRefManager;
 
 template<class OBJECT>
-class GridReference : public Reference<GridRefManager<OBJECT>, OBJECT>
+class GridReference : public Reference<GridRefManager<OBJECT>, OBJECT, GridReference<OBJECT>>
 {
     protected:
-        void targetObjectBuildLink() override
+        friend Reference<GridRefManager<OBJECT>, OBJECT, GridReference<OBJECT>>;
+        void targetObjectBuildLink()
         {
             // called from link()
             this->getTarget()->insertFirst(this);
             this->getTarget()->incSize();
         }
-        void targetObjectDestroyLink() override
+        void targetObjectDestroyLink()
         {
             // called from unlink()
             if (this->isValid()) this->getTarget()->decSize();
         }
-        void sourceObjectDestroyLink() override
+        void sourceObjectDestroyLink()
         {
             // called from invalidate()
             this->getTarget()->decSize();
         }
     public:
-        GridReference() : Reference<GridRefManager<OBJECT>, OBJECT>() { }
+        GridReference() = default;
         ~GridReference() { this->unlink(); }
-        GridReference* next() { return (GridReference*)Reference<GridRefManager<OBJECT>, OBJECT>::next(); }
 };
 #endif

@@ -15,42 +15,62 @@
 //-----------------------------------------------------------------------------
 // Local variables
 
-static const TCHAR * szAllowedHexChars = _T("0123456789aAbBcCdDeEfF");
-static const TCHAR * szIndexFormat_V1 = _T("data.i%x%x");
-static const TCHAR * szIndexFormat_V2 = _T("%02x%08x.idx");
+static LPCTSTR szAllowedHexChars = _T("0123456789aAbBcCdDeEfF");
+static LPCTSTR szIndexFormat_V1 = _T("data.i%x%x");
+static LPCTSTR szIndexFormat_V2 = _T("%02x%08x.idx");
 
 // Limit for "orphaned" items - those that are in index files, but are not in ENCODING manifest
 #define CASC_MAX_ORPHANED_ITEMS 0x100
 
+typedef bool (*EKEY_ENTRY_CALLBACK)(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, LPBYTE pbEKeyEntry);
+
 //-----------------------------------------------------------------------------
 // Local functions
 
-// "data.iXY"
-static bool IsIndexFileName_V1(const TCHAR * szFileName)
+// Check a file name with mask
+static bool IsFileNameMask(LPCTSTR szFileName, LPCTSTR szMask)
 {
-    // Check if the name looks like a valid index file
-    return (_tcslen(szFileName) == 8 &&
-            _tcsnicmp(szFileName, _T("data.i"), 6) == 0 &&
-            _tcsspn(szFileName + 6, szAllowedHexChars) == 2);
+    size_t i;
+
+    for(i = 0; szFileName[i] != 0 && szMask[i] != 0; i++)
+    {
+        // '#' in the mask means any hexa number
+        if(szMask[i] == _T('#'))
+        {
+            if(!IsHexadecimalDigit(szFileName[i]))
+                return false;
+            continue;
+        }
+
+        // Compare both characters, converted to lowercase
+        if(AsciiToUpperTable_BkSlash[(BYTE)(szMask[i])] != AsciiToUpperTable_BkSlash[(BYTE)(szFileName[i])])
+            return false;
+    }
+
+    // If we found end of both strings, it's a match
+    return (szFileName[i] == 0 && szMask[i] == 0);
 }
 
-static bool IsIndexFileName_V2(const TCHAR * szFileName)
+// Heroes of the Storm, build 29049: "data.i##"
+static bool IsIndexFileName_V1(LPCTSTR szFileName)
 {
-    // Check if the name looks like a valid index file
-    return (_tcslen(szFileName) == 14 &&
-            _tcsspn(szFileName, _T("0123456789aAbBcCdDeEfF")) == 0x0A &&
-            _tcsicmp(szFileName + 0x0A, _T(".idx")) == 0);
+    return IsFileNameMask(szFileName, _T("data.i##"));
+}
+
+// Current CASC storages: ##########.idx
+static bool IsIndexFileName_V2(LPCTSTR szFileName)
+{
+    return IsFileNameMask(szFileName, _T("##########.idx"));
 }
 
 static bool IndexDirectory_OnFileFound(
-    const TCHAR * szFileName,
-    PDWORD IndexArray,
-    PDWORD OldIndexArray,
+    LPCTSTR szFileName,
     void * pvContext)
 {
     TCascStorage * hs = (TCascStorage *)pvContext;
-    DWORD IndexValue = 0;
+    PCASC_INDEX pIndexFile;
     DWORD IndexVersion = 0;
+    DWORD IndexValue = 0;
 
     // Auto-detect the format of the index file name
     if(hs->szIndexFormat == NULL)
@@ -60,32 +80,32 @@ static bool IndexDirectory_OnFileFound(
         else if(IsIndexFileName_V1(szFileName))
             hs->szIndexFormat = szIndexFormat_V1;
         else
-            return false;
+            return true;
     }
 
     if(hs->szIndexFormat == szIndexFormat_V2)
     {
         // Check the index file name format
         if(!IsIndexFileName_V2(szFileName))
-            return false;
+            return true;
 
         // Get the main index from the first two digits
-        if(ConvertStringToInt32(szFileName, 2, &IndexValue) != ERROR_SUCCESS)
-            return false;
-        if(ConvertStringToInt32(szFileName + 2, 8, &IndexVersion) != ERROR_SUCCESS)
-            return false;
+        if(ConvertStringToInt(szFileName + 0, 2, IndexValue) != ERROR_SUCCESS)
+            return true;
+        if(ConvertStringToInt(szFileName + 2, 8, IndexVersion) != ERROR_SUCCESS)
+            return true;
     }
     else if(hs->szIndexFormat == szIndexFormat_V1)
     {
         // Check the index file name format
         if(!IsIndexFileName_V1(szFileName))
-            return false;
+            return true;
 
         // Get the main index from the first two digits
-        if(ConvertDigitToInt32(szFileName + 6, &IndexValue) != ERROR_SUCCESS)
-            return false;
-        if(ConvertDigitToInt32(szFileName + 7, &IndexVersion) != ERROR_SUCCESS)
-            return false;
+        if(ConvertStringToInt(szFileName + 6, 1, IndexValue) != ERROR_SUCCESS)
+            return true;
+        if(ConvertStringToInt(szFileName + 7, 1, IndexVersion) != ERROR_SUCCESS)
+            return true;
     }
     else
     {
@@ -97,17 +117,17 @@ static bool IndexDirectory_OnFileFound(
     // The index value must not be greater than 0x0F
     if(IndexValue >= CASC_INDEX_COUNT)
         return false;
+    pIndexFile = &hs->IndexFiles[IndexValue];
 
-    // If the new subindex is greater than the previous one,
-    // use this one instead
-    if(IndexVersion > IndexArray[IndexValue])
+    // If the new subindex is greater than the previous one, use this one instead
+    if(IndexVersion > pIndexFile->NewSubIndex)
     {
-        OldIndexArray[IndexValue] = IndexArray[IndexValue];
-        IndexArray[IndexValue] = IndexVersion;
+        pIndexFile->OldSubIndex = pIndexFile->NewSubIndex;
+        pIndexFile->NewSubIndex = IndexVersion;
     }
-    else if(IndexVersion > OldIndexArray[IndexValue])
+    else if(IndexVersion > pIndexFile->OldSubIndex)
     {
-        OldIndexArray[IndexValue] = IndexVersion;
+        pIndexFile->OldSubIndex = IndexVersion;
     }
 
     // Note: WoW6 only keeps last two index files
@@ -115,7 +135,7 @@ static bool IndexDirectory_OnFileFound(
     return true;
 }
 
-static TCHAR * CreateIndexFileName(TCascStorage * hs, DWORD IndexValue, DWORD IndexVersion)
+static LPTSTR CreateIndexFileName(TCascStorage * hs, DWORD IndexValue, DWORD IndexVersion)
 {
     TCHAR szPlainName[0x40];
 
@@ -124,9 +144,11 @@ static TCHAR * CreateIndexFileName(TCascStorage * hs, DWORD IndexValue, DWORD In
     assert(hs->szIndexPath != NULL);
     assert(IndexValue <= 0x0F);
 
-    // Create the full path
+    // Create the plain name of the index file
     CascStrPrintf(szPlainName, _countof(szPlainName), hs->szIndexFormat, IndexValue, IndexVersion);
-    return CombinePath(hs->szIndexPath, szPlainName);
+
+    // Allocate path
+    return CASC_PATH<TCHAR>(hs->szIndexPath, szPlainName, NULL).New();
 }
 
 static void SaveFileOffsetBitsAndEKeyLength(TCascStorage * hs, BYTE FileOffsetBits, BYTE EKeyLength)
@@ -166,33 +188,63 @@ static LPBYTE CaptureGuardedBlock2(LPBYTE pbFileData, LPBYTE pbFileEnd, size_t E
     PFILE_INDEX_GUARDED_BLOCK pBlock = (PFILE_INDEX_GUARDED_BLOCK)pbFileData;
     LPBYTE pbEntryPtr;
     size_t EntryCount;
+    unsigned int HashBlizzGet = 0;
     unsigned int HashHigh = 0;
     unsigned int HashLow = 0;
 
     // Check the guarded block. There must be enough bytes to contain FILE_INDEX_GUARDED_BLOCK
     // and also the block length must not be NULL
-    if ((pbFileData + sizeof(FILE_INDEX_GUARDED_BLOCK)) >= pbFileEnd)
+    if((pbFileData + sizeof(FILE_INDEX_GUARDED_BLOCK)) >= pbFileEnd)
         return NULL;
-    if (pBlock->BlockSize == 0 || (pbFileData + sizeof(FILE_INDEX_GUARDED_BLOCK) + pBlock->BlockSize) > pbFileEnd)
+    if(pBlock->BlockSize == 0 || (pbFileData + sizeof(FILE_INDEX_GUARDED_BLOCK) + pBlock->BlockSize) > pbFileEnd)
         return NULL;
 
-    // Compute the hash entry-by-entry
+    //
+    // Verify the hash from the Blizzard Downloader
+    //
+
     pbEntryPtr = pbFileData + sizeof(FILE_INDEX_GUARDED_BLOCK);
     EntryCount = pBlock->BlockSize / EntryLength;
-    for (size_t i = 0; i < EntryCount; i++)
+    for(size_t i = 0; i < EntryCount; i++)
     {
         hashlittle2(pbEntryPtr, EntryLength, &HashHigh, &HashLow);
         pbEntryPtr += EntryLength;
     }
 
     // Verify hash
-    if (HashHigh != pBlock->BlockHash)
-        return NULL;
+    if(HashHigh == pBlock->BlockHash)
+    {
+        // Give the output
+        if(PtrBlockSize != NULL)
+            PtrBlockSize[0] = pBlock->BlockSize;
+        return (LPBYTE)(pBlock + 1);
+    }
 
-    // Give the output
-    if (PtrBlockSize != NULL)
-        PtrBlockSize[0] = pBlock->BlockSize;
-    return (LPBYTE)(pBlock + 1);
+    //
+    // Verify the hash from the Blizzget tool, which calculates the hash differently
+    // https://github.com/d07RiV/blizzget/blob/master/src/ngdp.cpp
+    // Function void DataStorage::writeIndex()
+    //
+
+    pbEntryPtr = pbFileData + sizeof(FILE_INDEX_GUARDED_BLOCK);
+    EntryCount = pBlock->BlockSize / EntryLength;
+    for(size_t i = 0; i < EntryCount; i++)
+    {
+        HashBlizzGet = hashlittle(pbEntryPtr, EntryLength, HashBlizzGet);
+        pbEntryPtr += EntryLength;
+    }
+
+    // Verify hash
+    if(HashBlizzGet == pBlock->BlockHash)
+    {
+        // Give the output
+        if(PtrBlockSize != NULL)
+            PtrBlockSize[0] = pBlock->BlockSize;
+        return (LPBYTE)(pBlock + 1);
+    }
+
+    // Hash mismatch
+    return NULL;
 }
 
 // Third method of checking a guarded block; There is 32-bit hash, followed by EKey entry
@@ -204,9 +256,9 @@ static LPBYTE CaptureGuardedBlock3(LPBYTE pbFileData, LPBYTE pbFileEnd, size_t E
 
     // Check the guarded block. There must be enough bytes to contain single entry and the hash
     // Also, the hash must be present
-    if ((pbFileData + sizeof(DWORD) + EntryLength) >= pbFileEnd)
+    if((pbFileData + sizeof(DWORD) + EntryLength) >= pbFileEnd)
         return NULL;
-    if (PtrEntryHash[0] == 0)
+    if(PtrEntryHash[0] == 0)
         return NULL;
 
     EntryHash = hashlittle(pbFileData + sizeof(DWORD), EntryLength+1, 0) | 0x80000000;
@@ -217,85 +269,17 @@ static LPBYTE CaptureGuardedBlock3(LPBYTE pbFileData, LPBYTE pbFileEnd, size_t E
     return (LPBYTE)(PtrEntryHash + 1);
 }
 
-static bool CaptureIndexEntry(CASC_INDEX_HEADER & InHeader, PCASC_EKEY_ENTRY pEKeyEntry, LPBYTE pbEKeyEntry)
-{
-    // Copy the EKey of the variable length
-    pbEKeyEntry = CaptureEncodedKey(pEKeyEntry->EKey, pbEKeyEntry, InHeader.EKeyLength);
-
-    // Copy the storage offset and encoded size
-    pEKeyEntry->StorageOffset = ConvertBytesToInteger_5(pbEKeyEntry);
-    pEKeyEntry->EncodedSize = ConvertBytesToInteger_4_LE(pbEKeyEntry + InHeader.StorageOffsetLength);
-    pEKeyEntry->Alignment = 0;
-
-    // We ignore items that have EncodedSize of 0x1E
-    return (pEKeyEntry->EncodedSize > FIELD_OFFSET(BLTE_ENCODED_HEADER, Signature));
-}
-
-static void InsertCKeyEntry(TCascStorage * hs, CASC_EKEY_ENTRY & EKeyEntry, DWORD Flags)
-{
-    PCASC_CKEY_ENTRY pCKeyEntry;
-
-    // Multiple items with the same EKey in the index files may exist.
-    // Example: "2018 - New CASC\00001", EKey 37 89 16 5b 2d cc 71 c1 25 00 00 00 00 00 00 00
-    // Positions: 0x1D, 0x1E, 0x1F
-    // In that case, we only take the first one into account
-    // BREAK_ON_XKEY3(EKeyEntry.EKey, 0x09, 0xF3, 0xCD);
-
-    // If the item is not there yet, insert a new one
-    if((pCKeyEntry = FindCKeyEntry_EKey(hs, EKeyEntry.EKey)) == NULL)
-    {
-        // Insert a new entry to the array. DO NOT ALLOW enlarge array here
-        pCKeyEntry = (PCASC_CKEY_ENTRY)hs->CKeyArray.Insert(1, false);
-        if(pCKeyEntry == NULL)
-            return;
-
-        // Fill-in the information
-        ZeroMemory16(pCKeyEntry->CKey);
-        CopyMemory16(pCKeyEntry->EKey, EKeyEntry.EKey);
-        pCKeyEntry->StorageOffset = EKeyEntry.StorageOffset;
-        pCKeyEntry->TagBitMask = 0;
-        pCKeyEntry->ContentSize = CASC_INVALID_SIZE;
-        pCKeyEntry->EncodedSize = EKeyEntry.EncodedSize;
-        pCKeyEntry->Flags = CASC_CE_HAS_EKEY | CASC_CE_HAS_EKEY_PARTIAL;
-        pCKeyEntry->RefCount = 0;
-        pCKeyEntry->SpanCount = 1;
-        pCKeyEntry->Priority = 0;
-
-        // Insert the item to the EKey table
-        hs->EKeyMap.InsertObject(pCKeyEntry, pCKeyEntry->EKey);
-    }
-    else
-    {
-        // The entry already exists. True e.g. for ENCODING.
-        // Only copy the storage offset and sizes if not available yet
-        if(pCKeyEntry->StorageOffset == CASC_INVALID_OFFS64)
-        {
-            pCKeyEntry->StorageOffset = EKeyEntry.StorageOffset;
-            pCKeyEntry->EncodedSize = EKeyEntry.EncodedSize;
-        }
-    }
-
-    // Add the extra flag
-    pCKeyEntry->Flags |= Flags;
-}
-
-static DWORD LoadIndexItems(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, LPBYTE pbEKeyEntry, LPBYTE pbEKeyEnd)
+static DWORD LoadIndexItems(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, EKEY_ENTRY_CALLBACK PfnEKeyEntry, LPBYTE pbEKeyEntry, LPBYTE pbEKeyEnd)
 {
     size_t EntryLength = InHeader.EntryLength;
 
     while((pbEKeyEntry + EntryLength) <= pbEKeyEnd)
     {
-        CASC_EKEY_ENTRY EKeyEntry;
+        // ENCODING for Starcraft II Beta
+        BREAK_ON_XKEY3(pbEKeyEntry, 0x8b, 0x0d, 0x9a);
 
-        // Capture the index entry and verify it.
-        if(CaptureIndexEntry(InHeader, &EKeyEntry, pbEKeyEntry))
-        {
-            // DOWNLOAD in HOTS
-            //BREAK_ON_XKEY3(EKeyEntry.EKey, 0x09, 0xF3, 0xCD);
-
-            // Insert the index entry to the central table
-            InsertCKeyEntry(hs, EKeyEntry, CASC_CE_FILE_IS_LOCAL);
-        }
+        if(!PfnEKeyEntry(hs, InHeader, pbEKeyEntry))
+            return ERROR_INDEX_PARSING_DONE;
 
         pbEKeyEntry += EntryLength;
     }
@@ -303,7 +287,7 @@ static DWORD LoadIndexItems(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, LPB
     return ERROR_SUCCESS;
 }
 
-static DWORD CaptureIndexHeader_V1(CASC_INDEX_HEADER & InHeader, LPBYTE pbFileData, DWORD cbFileData, DWORD BucketIndex)
+static DWORD CaptureIndexHeader_V1(CASC_INDEX_HEADER & InHeader, LPBYTE pbFileData, size_t cbFileData, DWORD BucketIndex)
 {
     PFILE_INDEX_HEADER_V1 pIndexHeader = (PFILE_INDEX_HEADER_V1)pbFileData;
     LPBYTE pbKeyEntries;
@@ -363,7 +347,7 @@ static DWORD CaptureIndexHeader_V1(CASC_INDEX_HEADER & InHeader, LPBYTE pbFileDa
     return ERROR_SUCCESS;
 }
 
-static DWORD CaptureIndexHeader_V2(CASC_INDEX_HEADER & InHeader, LPBYTE pbFileData, DWORD cbFileData, DWORD BucketIndex)
+static DWORD CaptureIndexHeader_V2(CASC_INDEX_HEADER & InHeader, LPBYTE pbFileData, size_t cbFileData, DWORD BucketIndex)
 {
     PFILE_INDEX_HEADER_V2 pIndexHeader;
     LPBYTE pbFileEnd = pbFileData + cbFileData;
@@ -397,7 +381,7 @@ static DWORD CaptureIndexHeader_V2(CASC_INDEX_HEADER & InHeader, LPBYTE pbFileDa
     return ERROR_SUCCESS;
 }    
 
-static DWORD LoadIndexFile_V1(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, LPBYTE pbFileData, DWORD cbFileData)
+static DWORD LoadIndexFile_V1(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, EKEY_ENTRY_CALLBACK PfnEKeyEntry, LPBYTE pbFileData, size_t cbFileData)
 {
     LPBYTE pbEKeyEntries = pbFileData + InHeader.HeaderLength + InHeader.HeaderPadding;
 
@@ -405,10 +389,10 @@ static DWORD LoadIndexFile_V1(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, L
     SaveFileOffsetBitsAndEKeyLength(hs, InHeader.FileOffsetBits, InHeader.EKeyLength);
 
     // Load the entries from a continuous array
-    return LoadIndexItems(hs, InHeader, pbEKeyEntries, pbFileData + cbFileData);
+    return LoadIndexItems(hs, InHeader, PfnEKeyEntry, pbEKeyEntries, pbFileData + cbFileData);
 }
 
-static DWORD LoadIndexFile_V2(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, LPBYTE pbFileData, DWORD cbFileData)
+static DWORD LoadIndexFile_V2(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, EKEY_ENTRY_CALLBACK PfnEKeyEntry, LPBYTE pbFileData, size_t cbFileData)
 {
     LPBYTE pbEKeyEntry;
     LPBYTE pbFileEnd = pbFileData + cbFileData;
@@ -427,7 +411,7 @@ static DWORD LoadIndexFile_V2(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, L
         InHeader.HeaderPadding += sizeof(FILE_INDEX_GUARDED_BLOCK);
 
         // Load the continuous array of EKeys
-        return LoadIndexItems(hs, InHeader, pbEKeyEntry, pbEKeyEntry + BlockSize);
+        return LoadIndexItems(hs, InHeader, PfnEKeyEntry, pbEKeyEntry, pbEKeyEntry + BlockSize);
     }
 
     // Get the pointer to the second block of EKey entries.
@@ -446,8 +430,6 @@ static DWORD LoadIndexFile_V2(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, L
             
             while(pbEKeyEntry < pbEndPage)
             {
-                CASC_EKEY_ENTRY EKeyEntry;
-
                 // Check the EKey entry protected by 32-bit hash
                 if((pbEKeyEntry = CaptureGuardedBlock3(pbEKeyEntry, pbEndPage, InHeader.EntryLength)) == NULL)
                     break;
@@ -455,13 +437,10 @@ static DWORD LoadIndexFile_V2(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, L
                 // CASC\\0001: Encoding
                 //BREAK_ON_XKEY3(pbEKeyEntry, 0xbc, 0xe8, 0x23);
 
-                // Capture the index entry and verify it.
-                if(CaptureIndexEntry(InHeader, &EKeyEntry, pbEKeyEntry))
-                {
-                    InsertCKeyEntry(hs, EKeyEntry, CASC_CE_FILE_IS_LOCAL);
-                }
+                // Call the EKey entry callback
+                if(!PfnEKeyEntry(hs, InHeader, pbEKeyEntry))
+                    return ERROR_INDEX_PARSING_DONE;
 
-                // Move to the next entry
                 pbEKeyEntry += AlignedLength;
             }
 
@@ -474,80 +453,110 @@ static DWORD LoadIndexFile_V2(TCascStorage * hs, CASC_INDEX_HEADER & InHeader, L
     return dwErrCode;
 }
 
-static DWORD LoadIndexFile(TCascStorage * hs, LPBYTE pbFileData, DWORD cbFileData, DWORD BucketIndex)
+static DWORD LoadIndexFile(TCascStorage * hs, EKEY_ENTRY_CALLBACK PfnEKeyEntry, LPBYTE pbFileData, size_t cbFileData, DWORD BucketIndex)
 {
     CASC_INDEX_HEADER InHeader;
 
     // Check for CASC version 2
     if(CaptureIndexHeader_V2(InHeader, pbFileData, cbFileData, BucketIndex) == ERROR_SUCCESS)
-        return LoadIndexFile_V2(hs, InHeader, pbFileData, cbFileData);
+        return LoadIndexFile_V2(hs, InHeader, PfnEKeyEntry, pbFileData, cbFileData);
 
     // Check for CASC index version 1
     if(CaptureIndexHeader_V1(InHeader, pbFileData, cbFileData, BucketIndex) == ERROR_SUCCESS)
-        return LoadIndexFile_V1(hs, InHeader, pbFileData, cbFileData);
+        return LoadIndexFile_V1(hs, InHeader, PfnEKeyEntry, pbFileData, cbFileData);
 
     // Should never happen
     assert(false);
     return ERROR_BAD_FORMAT;
 }
 
-static DWORD LoadIndexFile(TCascStorage * hs, const TCHAR * szFileName, DWORD BucketIndex)
+// Checks the EKey entry for EKey of the ENCODING manifest
+static bool InsertEncodingEKeyToMap(TCascStorage * hs, CASC_INDEX_HEADER &, LPBYTE pbEKeyEntry)
 {
-    LPBYTE pbFileData;
-    DWORD cbFileData;
+    hs->IndexEKeyMap.InsertObject(pbEKeyEntry, pbEKeyEntry);
+    return true;
+}
+
+static DWORD ProcessLocalIndexFiles(TCascStorage * hs, EKEY_ENTRY_CALLBACK PfnEKeyEntry, DWORD dwIndexCount)
+{
     DWORD dwErrCode = ERROR_SUCCESS;
 
-    // WoW6 actually reads THE ENTIRE file to memory. Verified on Mac build (x64).
-    pbFileData = LoadFileToMemory(szFileName, &cbFileData);
-    if(pbFileData && cbFileData)
+    // Load each index file
+    for(DWORD i = 0; i < dwIndexCount; i++)
     {
-        // Parse and load the index file
-        dwErrCode = LoadIndexFile(hs, pbFileData, cbFileData, BucketIndex);
-        CASC_FREE(pbFileData);
-    }
-    else
-    {
-        dwErrCode = GetLastError();
+        CASC_INDEX & IndexFile = hs->IndexFiles[i];
+
+        // Inform the user about what we are doing
+        if(InvokeProgressCallback(hs, "Loading index files", NULL, i, dwIndexCount))
+        {
+            dwErrCode = ERROR_CANCELLED;
+            break;
+        }
+
+        // Load the index file
+        if((dwErrCode = LoadIndexFile(hs, PfnEKeyEntry, IndexFile.FileData.pbData, IndexFile.FileData.cbData, i)) != ERROR_SUCCESS)
+            break;
     }
 
+    // Swallow the "done parsing" error
+    if(dwErrCode == ERROR_INDEX_PARSING_DONE)
+        dwErrCode = ERROR_SUCCESS;
+
+    // Remember the number of files that are present locally
+    hs->LocalFiles = hs->CKeyArray.ItemCount();
     return dwErrCode;
 }
 
 static DWORD LoadLocalIndexFiles(TCascStorage * hs)
 {
-    TCHAR * szFileName;
-    DWORD OldIndexArray[CASC_INDEX_COUNT];
-    DWORD IndexArray[CASC_INDEX_COUNT];
+    ULONGLONG TotalSize = 0;
+    DWORD dwIndexCount = 0;
     DWORD dwErrCode;
 
-    // Scan all index files and load contained EKEY entries
-    memset(OldIndexArray, 0, sizeof(OldIndexArray));
-    memset(IndexArray, 0, sizeof(IndexArray));
-    dwErrCode = ScanIndexDirectory(hs->szIndexPath, IndexDirectory_OnFileFound, IndexArray, OldIndexArray, hs);
-    if(dwErrCode == ERROR_SUCCESS)
+    // Inform the user about what we are doing
+    if(InvokeProgressCallback(hs, "Loading index files", NULL, 0, 0))
+        return ERROR_CANCELLED;
+
+    // Perform the directory scan
+    if((dwErrCode = ScanDirectory(hs->szIndexPath, NULL, IndexDirectory_OnFileFound, hs)) == ERROR_SUCCESS)
     {
+        // If no index file was found, we cannot load anything
+        if(hs->szIndexFormat == NULL)
+            return ERROR_FILE_NOT_FOUND;
+
         // Load each index file
         for(DWORD i = 0; i < CASC_INDEX_COUNT; i++)
         {
-            // Create the name of the index file
-            if((szFileName = CreateIndexFileName(hs, i, IndexArray[i])) != NULL)
+            CASC_INDEX & IndexFile = hs->IndexFiles[i];
+
+            // Create the file name
+            if((IndexFile.szFileName = CreateIndexFileName(hs, i, IndexFile.NewSubIndex)) == NULL)
+                return ERROR_NOT_ENOUGH_MEMORY;
+
+            // WoW6 actually reads THE ENTIRE file to memory. Verified on Mac build (x64).
+            dwErrCode = LoadFileToMemory(IndexFile.szFileName, IndexFile.FileData);
+            if(dwErrCode != ERROR_SUCCESS)
             {
-                // Inform the user about what we are doing
-                if(InvokeProgressCallback(hs, "Loading index files", NULL, i, CASC_INDEX_COUNT))
+                // Storages downloaded by Blizzget tool don't have all index files present
+                if((dwErrCode = GetCascError()) == ERROR_FILE_NOT_FOUND)
                 {
-                    dwErrCode = ERROR_CANCELLED;
+                    dwErrCode = ERROR_SUCCESS;
                     break;
                 }
-
-                // Load the index file
-                if((dwErrCode = LoadIndexFile(hs, szFileName, i)) != ERROR_SUCCESS)
-                    break;
-                CASC_FREE(szFileName);
+                return dwErrCode;
             }
+
+            // Add to the total size of the index files
+            TotalSize += IndexFile.FileData.cbData;
+            dwIndexCount++;
         }
 
-        // Remember the number of files that are present locally
-        hs->LocalFiles = hs->CKeyArray.ItemCount();
+        // Build the map of EKey -> IndexEKeyEntry
+        dwErrCode = hs->IndexEKeyMap.Create((size_t)(TotalSize / sizeof(FILE_EKEY_ENTRY)), CASC_EKEY_SIZE, 0);
+        if(dwErrCode == ERROR_SUCCESS)
+        {
+            dwErrCode = ProcessLocalIndexFiles(hs, InsertEncodingEKeyToMap, dwIndexCount);
+        }
     }
 
     return dwErrCode;
@@ -557,7 +566,7 @@ static DWORD LoadLocalIndexFiles(TCascStorage * hs)
 // Online index files
 // https://wowdev.wiki/TACT#CDN_File_Organization
 
-static DWORD CaptureArcIndexFooter(CASC_ARCINDEX_FOOTER & InFooter, LPBYTE pbIndexFile, DWORD cbIndexFile)
+static DWORD CaptureArchiveIndexFooter(CASC_ARCINDEX_FOOTER & InFooter, LPBYTE pbIndexFile, size_t cbIndexFile)
 {
     FILE_INDEX_FOOTER<0x08> * pFooter08;
     BYTE checksum_data[0x40] = { 0 };
@@ -569,7 +578,7 @@ static DWORD CaptureArcIndexFooter(CASC_ARCINDEX_FOOTER & InFooter, LPBYTE pbInd
 
     // Check the variant for checksum == 0x08
     pFooter08 = (FILE_INDEX_FOOTER<0x08> *)(pbIndexFile + cbIndexFile - sizeof(FILE_INDEX_FOOTER<0x08>));
-    if (pFooter08->Version == 1 && pFooter08->Reserved[0] == 0 && pFooter08->Reserved[1] == 0 && pFooter08->FooterHashBytes == 8)
+    if(pFooter08->Version == 1 && pFooter08->Reserved[0] == 0 && pFooter08->Reserved[1] == 0 && pFooter08->FooterHashBytes == 8)
     {
         // Copy the entire structure
         memcpy(InFooter.TocHash, pFooter08->TocHash, MD5_HASH_SIZE);
@@ -579,7 +588,7 @@ static DWORD CaptureArcIndexFooter(CASC_ARCINDEX_FOOTER & InFooter, LPBYTE pbInd
         InFooter.SizeBytes = pFooter08->SizeBytes;
         InFooter.EKeyLength = pFooter08->EKeyLength;
         InFooter.FooterHashBytes = pFooter08->FooterHashBytes;
-        InFooter.PageLength = pFooter08->PageSizeKB << 10;
+        InFooter.PageLength = ((size_t)pFooter08->PageSizeKB) << 10;
         InFooter.ItemLength = pFooter08->EKeyLength + pFooter08->OffsetBytes + pFooter08->SizeBytes;
         InFooter.FooterLength = sizeof(FILE_INDEX_FOOTER<0x08>);
         InFooter.ElementCount = ConvertBytesToInteger_4_LE(pFooter08->ElementCount);
@@ -587,12 +596,10 @@ static DWORD CaptureArcIndexFooter(CASC_ARCINDEX_FOOTER & InFooter, LPBYTE pbInd
         // Verify the hash. FooterHash needs to be cleared in order to calculate footer hash properly
         checksum_data_length = FIELD_OFFSET(FILE_INDEX_FOOTER<0x08>, FooterHash) - FIELD_OFFSET(FILE_INDEX_FOOTER<0x08>, Version);
         memcpy(checksum_data, &pFooter08->Version, checksum_data_length);
-        CascCalculateDataBlockHash(checksum_data, sizeof(FILE_INDEX_FOOTER<0x08>) - MD5_HASH_SIZE, md5_hash);
+        CascHash_MD5(checksum_data, sizeof(FILE_INDEX_FOOTER<0x08>) - MD5_HASH_SIZE, md5_hash);
         if(!memcmp(md5_hash, InFooter.FooterHash, InFooter.FooterHashBytes))
             return ERROR_SUCCESS;
     }
-
-    assert(false);
     return ERROR_BAD_FORMAT;
 }
 
@@ -602,7 +609,7 @@ static DWORD CaptureIndexEntry(CASC_ARCINDEX_FOOTER  & InFooter, CASC_EKEY_ENTRY
     ULONGLONG ArchiveOffset;
 
     // If there enough bytes for one entry/
-    if ((pbIndexPage + InFooter.ItemLength) > pbIndexPageEnd)
+    if((pbIndexPage + InFooter.ItemLength) > pbIndexPageEnd)
         return ERROR_BAD_FORMAT;
 
     // Capture the EKey (variable length)
@@ -610,7 +617,7 @@ static DWORD CaptureIndexEntry(CASC_ARCINDEX_FOOTER  & InFooter, CASC_EKEY_ENTRY
 
     // Copy the archive offset
     ArchiveOffset = ConvertBytesToInteger_X(pbIndexPage + InFooter.SizeBytes, InFooter.OffsetBytes);
-    if (ArchiveOffset >= 0x10000000)
+    if(ArchiveOffset >= 0x10000000)
         return ERROR_BAD_FORMAT;
 
     // Capture the storage offset and encoded size
@@ -649,7 +656,7 @@ static DWORD LoadArchiveIndexPage(TCascStorage * hs, CASC_ARCINDEX_FOOTER & InFo
     {
         // Capture the index entry
         dwErrCode = CaptureIndexEntry(InFooter, EKeyEntry, pbIndexPage, pbIndexPageEnd, nArchive);
-        if (dwErrCode != ERROR_SUCCESS)
+        if(dwErrCode != ERROR_SUCCESS)
             break;
 
         // Insert a new entry to the index array
@@ -663,15 +670,15 @@ static DWORD LoadArchiveIndexPage(TCascStorage * hs, CASC_ARCINDEX_FOOTER & InFo
     return ERROR_SUCCESS;
 }
 
-static DWORD LoadArchiveIndexFile(TCascStorage * hs, LPBYTE pbIndexFile, DWORD cbIndexFile, size_t nArchive)
+static DWORD LoadArchiveIndexFile(TCascStorage * hs, LPBYTE pbIndexFile, size_t cbIndexFile, size_t nArchive)
 {
     CASC_ARCINDEX_FOOTER InFooter;
     LPBYTE pbIndexEnd = NULL;
     DWORD dwErrCode;
 
     // Validate and capture the footer
-    dwErrCode = CaptureArcIndexFooter(InFooter, pbIndexFile, cbIndexFile);
-    if (dwErrCode != ERROR_SUCCESS)
+    dwErrCode = CaptureArchiveIndexFooter(InFooter, pbIndexFile, cbIndexFile);
+    if(dwErrCode != ERROR_SUCCESS)
         return dwErrCode;
 
     // Remember the file offset and EKey length
@@ -679,7 +686,7 @@ static DWORD LoadArchiveIndexFile(TCascStorage * hs, LPBYTE pbIndexFile, DWORD c
 
     // Verify the size of the index file
     dwErrCode = VerifyIndexSize(InFooter, pbIndexFile, cbIndexFile, &pbIndexEnd);
-    if (dwErrCode != ERROR_SUCCESS)
+    if(dwErrCode != ERROR_SUCCESS)
         return dwErrCode;
 
     // Parse all pages
@@ -687,7 +694,7 @@ static DWORD LoadArchiveIndexFile(TCascStorage * hs, LPBYTE pbIndexFile, DWORD c
     {
         // Load the entire page
         dwErrCode = LoadArchiveIndexPage(hs, InFooter, pbIndexFile, pbIndexFile + InFooter.PageLength, nArchive);
-        if (dwErrCode != ERROR_SUCCESS)
+        if(dwErrCode != ERROR_SUCCESS)
             break;
 
         // Move to the next page
@@ -705,16 +712,16 @@ static DWORD BuildMapOfArchiveIndices(TCascStorage * hs)
 
     // Create the map
     dwErrCode = hs->IndexMap.Create(nItemCount, MD5_HASH_SIZE, FIELD_OFFSET(CASC_EKEY_ENTRY, EKey));
-    if (dwErrCode != ERROR_SUCCESS)
+    if(dwErrCode != ERROR_SUCCESS)
         return dwErrCode;
 
     // Insert all items
     for(size_t i = 0; i < nItemCount; i++)
     {
         pEKeyEntry = (PCASC_EKEY_ENTRY)hs->IndexArray.ItemAt(i);
-        if (pEKeyEntry != NULL)
+        if(pEKeyEntry != NULL)
         {
-            if (!hs->IndexMap.InsertObject(pEKeyEntry, pEKeyEntry->EKey))
+            if(!hs->IndexMap.InsertObject(pEKeyEntry, pEKeyEntry->EKey))
             {
                 return ERROR_NOT_ENOUGH_MEMORY;
             }
@@ -726,21 +733,19 @@ static DWORD BuildMapOfArchiveIndices(TCascStorage * hs)
 
 static DWORD LoadArchiveIndexFiles(TCascStorage * hs)
 {
-    LPBYTE pbFileData;
-    TCHAR szLocalPath[MAX_PATH];
-    DWORD cbFileData = 0;
+    CASC_BLOB FileData;
     size_t nArchiveCount = (hs->ArchivesKey.cbData / MD5_HASH_SIZE);
     DWORD dwErrCode = ERROR_SUCCESS;
 
     // Create the array object for the indices
     dwErrCode = hs->IndexArray.Create(sizeof(CASC_EKEY_ENTRY), 0x10000);
-    if (dwErrCode != ERROR_SUCCESS)
+    if(dwErrCode != ERROR_SUCCESS)
         return dwErrCode;
 
     // Load all the indices
-    for (size_t i = 0; i < nArchiveCount; i++)
+    for(size_t i = 0; i < nArchiveCount; i++)
     {
-        CASC_CDN_DOWNLOAD CdnsInfo = {0};
+        CASC_PATH<TCHAR> LocalPath;
         LPBYTE pbIndexHash = hs->ArchivesKey.pbData + (i * MD5_HASH_SIZE);
 
         // Inform the user about what we are doing
@@ -750,34 +755,24 @@ static DWORD LoadArchiveIndexFiles(TCascStorage * hs)
             break;
         }
 
-        // Prepare the download structure for "%CDNS_HOST%/%CDNS_PATH%/##/##/EKey" file
-        CdnsInfo.szCdnsPath = hs->szCdnPath;
-        CdnsInfo.szPathType = _T("data");
-        CdnsInfo.pbEKey = pbIndexHash;
-        CdnsInfo.szExtension = _T(".index");
-        CdnsInfo.szLocalPath = szLocalPath;
-        CdnsInfo.ccLocalPath = _countof(szLocalPath);
-        dwErrCode = DownloadFileFromCDN(hs, CdnsInfo);
-
-        // Load and parse the archive index
-        if (dwErrCode == ERROR_SUCCESS)
+        // Fetch and parse the archive index
+        dwErrCode = FetchCascFile(hs, PathTypeData, pbIndexHash, _T(".index"), LocalPath);
+        if(dwErrCode == ERROR_SUCCESS)
         {
             // Load the index file to memory
-            pbFileData = LoadFileToMemory(szLocalPath, &cbFileData);
-            if (pbFileData && cbFileData)
+            if((dwErrCode = LoadFileToMemory(LocalPath, FileData)) == ERROR_SUCCESS)
             {
-                dwErrCode = LoadArchiveIndexFile(hs, pbFileData, cbFileData, i);
-                CASC_FREE(pbFileData);
+                dwErrCode = LoadArchiveIndexFile(hs, FileData.pbData, FileData.cbData, i);
             }
         }
 
         // Break if an error
-        if (dwErrCode != ERROR_SUCCESS)
+        if(dwErrCode != ERROR_SUCCESS)
             break;
     }
 
     // Build map of EKey -> CASC_EKEY_ENTRY
-    if (dwErrCode == ERROR_SUCCESS)
+    if(dwErrCode == ERROR_SUCCESS)
         dwErrCode = BuildMapOfArchiveIndices(hs);
     return dwErrCode;
 }
@@ -785,14 +780,57 @@ static DWORD LoadArchiveIndexFiles(TCascStorage * hs)
 //-----------------------------------------------------------------------------
 // Public functions
 
+bool CopyEKeyEntry(TCascStorage * hs, PCASC_CKEY_ENTRY pCKeyEntry)
+{
+    // Don't do this on online storages
+    if(!(hs->dwFeatures & CASC_FEATURE_ONLINE))
+    {
+        LPBYTE pbEKeyEntry;
+
+        // If the file was found, then copy the content to the CKey entry
+        pbEKeyEntry = (LPBYTE)hs->IndexEKeyMap.FindObject(pCKeyEntry->EKey);
+        if(pbEKeyEntry == NULL)
+            return false;
+
+        pCKeyEntry->StorageOffset = ConvertBytesToInteger_5(pbEKeyEntry + hs->EKeyLength);
+        pCKeyEntry->EncodedSize = ConvertBytesToInteger_4_LE(pbEKeyEntry + hs->EKeyLength + 5);
+        pCKeyEntry->Flags |= CASC_CE_FILE_IS_LOCAL;
+    }
+
+    return true;
+}
+
 DWORD LoadIndexFiles(TCascStorage * hs)
 {
-    if (hs->dwFeatures & CASC_FEATURE_ONLINE)
+    switch(hs->BuildFileType)
     {
-        return LoadArchiveIndexFiles(hs);
+        case CascBuildDb:       // Load the index files from the disk
+        case CascBuildInfo:
+            return LoadLocalIndexFiles(hs);
+
+        case CascVersions:      // Load the index files from the cache / internet
+            return LoadArchiveIndexFiles(hs);
+
+        default:
+            assert(false);
+            return ERROR_NOT_SUPPORTED;
     }
-    else
+}
+
+void FreeIndexFiles(TCascStorage * hs)
+{
+    // Free the map of EKey -> Index Ekey item
+    hs->IndexEKeyMap.Free();
+
+    // Free all loaded index files
+    for(size_t i = 0; i < CASC_INDEX_COUNT; i++)
     {
-        return LoadLocalIndexFiles(hs);
+        CASC_INDEX & IndexFile = hs->IndexFiles[i];
+
+        // Free the file data
+        IndexFile.FileData.Free();
+
+        // Free the file name
+        CASC_FREE(IndexFile.szFileName);
     }
 }

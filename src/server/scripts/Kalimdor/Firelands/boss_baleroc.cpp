@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -85,7 +85,6 @@ enum Actions
     ACTION_EQUIP_DECIMATION_BLADE   = 3,
 };
 
-
 enum Misc
 {
     EQUIP_DEFAULT                   = 1,
@@ -117,9 +116,9 @@ struct boss_baleroc : public firelands_bossAI
         EquipWeapon(EQUIP_DEFAULT);
     }
 
-    void EnterCombat(Unit* target) override
+    void JustEngagedWith(Unit* target) override
     {
-        firelands_bossAI::EnterCombat(target);
+        firelands_bossAI::JustEngagedWith(target);
 
         Talk(SAY_AGGRO);
         PreparePhase(PHASE_ONE);
@@ -219,7 +218,7 @@ struct boss_baleroc : public firelands_bossAI
         firelands_bossAI::UpdateAI(diff);
     }
 
-    void SetGUID(ObjectGuid guid, int32 type = 0) override
+    void SetGUID(ObjectGuid const& guid, int32 type = 0) override
     {
         switch (type)
         {
@@ -276,7 +275,7 @@ struct npc_shard_of_torment : public NullCreatureAI
 {
     npc_shard_of_torment(Creature* creature) : NullCreatureAI(creature) { }
 
-    void IsSummonedBy(Unit* /*summoner*/) override
+    void IsSummonedBy(WorldObject* /*summoner*/) override
     {
         DoCastAOE(SPELL_TORMENT_PRE_VISUAL);
         scheduler.Schedule(Milliseconds(4400), [this](TaskContext)
@@ -291,9 +290,9 @@ struct npc_shard_of_torment : public NullCreatureAI
         });
     }
 
-    void SpellHitTarget(Unit* /*target*/, const SpellInfo* spell) override
+    void SpellHitTarget(WorldObject* /*target*/, SpellInfo const* spellInfo) override
     {
-        if (spell->Id != SPELL_TORMENT)
+        if (spellInfo->Id != SPELL_TORMENT)
             return;
 
         scheduler.CancelAll();
@@ -316,8 +315,6 @@ private:
 // http://www.wowhead.com/spell=99342/blades-of-baloroc
 class spell_baleroc_blades_of_baleroc : public SpellScript
 {
-    PrepareSpellScript(spell_baleroc_blades_of_baleroc);
-
     bool Validate(SpellInfo const* /*spellInfo*/) override
     {
         return ValidateSpellInfo({ SPELL_INFERNO_BLADE, SPELL_DECIMATION_BLADE });
@@ -326,7 +323,7 @@ class spell_baleroc_blades_of_baleroc : public SpellScript
     void ChooseBlade(SpellEffIndex /*effIndex*/)
     {
         Creature* caster = GetCaster()->ToCreature();
-        if (!caster || !caster->IsAIEnabled)
+        if (!caster || !caster->IsAIEnabled())
             return;
 
         switch (urand(1, 2))
@@ -355,8 +352,6 @@ class spell_baleroc_blades_of_baleroc : public SpellScript
 // http://www.wowhead.com/spell=99350/inferno-blade
 class spell_baleroc_inferno_blade : public AuraScript
 {
-    PrepareAuraScript(spell_baleroc_inferno_blade);
-
     bool Load() override
     {
         return GetCaster()->GetTypeId() == TYPEID_UNIT;
@@ -364,13 +359,13 @@ class spell_baleroc_inferno_blade : public AuraScript
 
     void OnApply(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
     {
-        if (GetTarget()->IsAIEnabled)
+        if (GetTarget()->IsAIEnabled())
             GetTarget()->GetAI()->DoAction(ACTION_EQUIP_INFERNO_BLADE);
     }
 
     void OnRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
     {
-        if (GetTarget()->IsAIEnabled)
+        if (GetTarget()->IsAIEnabled())
             GetTarget()->GetAI()->DoAction(ACTION_EQUIP_DEFAULT);
     }
 
@@ -384,8 +379,6 @@ class spell_baleroc_inferno_blade : public AuraScript
 // http://www.wowhead.com/spell=99352/decimation-blade
 class spell_baleroc_decimation_blade : public AuraScript
 {
-    PrepareAuraScript(spell_baleroc_decimation_blade);
-
     bool Load() override
     {
         return GetCaster()->GetTypeId() == TYPEID_UNIT;
@@ -393,13 +386,13 @@ class spell_baleroc_decimation_blade : public AuraScript
 
     void OnApply(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
     {
-        if (GetTarget()->IsAIEnabled)
+        if (GetTarget()->IsAIEnabled())
             GetTarget()->GetAI()->DoAction(ACTION_EQUIP_DECIMATION_BLADE);
     }
 
     void OnRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
     {
-        if (GetTarget()->IsAIEnabled)
+        if (GetTarget()->IsAIEnabled())
             GetTarget()->GetAI()->DoAction(ACTION_EQUIP_DEFAULT);
     }
 
@@ -413,20 +406,16 @@ class spell_baleroc_decimation_blade : public AuraScript
 // http://www.wowhead.com/spell=99353/decimating-strike
 class spell_baleroc_decimating_strike : public SpellScript
 {
-    PrepareSpellScript(spell_baleroc_decimating_strike);
-
     bool Validate(SpellInfo const* spellInfo) override
     {
-        if (!spellInfo->GetEffect(EFFECT_0))
-            return false;
-        SpellEffectInfo const* spellEffectInfo = spellInfo->GetEffect(EFFECT_2);
-        return spellEffectInfo && ValidateSpellInfo({ uint32(spellEffectInfo->BasePoints) });
+        return ValidateSpellEffect({ { spellInfo->Id, EFFECT_2 } })
+            && ValidateSpellInfo({ uint32(spellInfo->GetEffect(EFFECT_2).CalcValue()) });
     }
 
     void ChangeDamage()
     {
-        int32 healthPctDmg = GetHitUnit()->CountPctFromMaxHealth(GetSpellInfo()->GetEffect(EFFECT_0)->BasePoints);
-        int32 flatDmg = GetSpellInfo()->GetEffect(EFFECT_2)->BasePoints;
+        int32 healthPctDmg = GetHitUnit()->CountPctFromMaxHealth(GetEffectInfo(EFFECT_0).CalcValue(GetCaster()));
+        int32 flatDmg = GetEffectInfo(EFFECT_2).CalcValue(GetCaster());
 
         SetHitDamage(healthPctDmg < flatDmg ? flatDmg : healthPctDmg);
     }
@@ -440,8 +429,6 @@ class spell_baleroc_decimating_strike : public SpellScript
 // http://www.wowhead.com/spell=99515/countdown
 class spell_baleroc_countdown_aoe_dummy : public SpellScript
 {
-    PrepareSpellScript(spell_baleroc_countdown_aoe_dummy);
-
     bool Validate(SpellInfo const* /*spellInfo*/) override
     {
         return ValidateSpellInfo({ SPELL_COUNTDOWN_VISUAL_LINK, SPELL_COUNTDOWN_AURA });
@@ -464,11 +451,7 @@ class spell_baleroc_countdown_aoe_dummy : public SpellScript
 
     void FilterTargets(std::list<WorldObject*>& targets)
     {
-        Creature* caster = GetCaster()->ToCreature();
-        if (!caster)
-            return;
-
-        if (WorldObject* tank = caster->AI()->SelectTarget(SELECT_TARGET_TOPAGGRO))
+        if (WorldObject* tank = GetCaster()->GetVictim())
             targets.remove(tank);
 
         if (targets.size() < 2)
@@ -496,8 +479,6 @@ class spell_baleroc_countdown_aoe_dummy : public SpellScript
 // http://www.wowhead.com/spell=99516/countdown
 class spell_baleroc_countdown : public AuraScript
 {
-    PrepareAuraScript(spell_baleroc_countdown);
-
     bool Validate(SpellInfo const* /*spellInfo*/) override
     {
         return ValidateSpellInfo({ SPELL_COUNTDOWN_VISUAL_LINK, SPELL_COUNTDOWN_AOE_EXPLOSION });
@@ -519,8 +500,6 @@ class spell_baleroc_countdown : public AuraScript
 // http://www.wowhead.com/spell=99517/countdown
 class spell_baleroc_countdown_proximity_check : public SpellScript
 {
-    PrepareSpellScript(spell_baleroc_countdown_proximity_check);
-
     bool Validate(SpellInfo const* /*spellInfo*/) override
     {
         return ValidateSpellInfo({ SPELL_COUNTDOWN_AURA });
@@ -549,8 +528,6 @@ class spell_baleroc_countdown_proximity_check : public SpellScript
 // http://www.wowhead.com/spell=99259/shards-of-torment
 class spell_baleroc_shards_of_torment_target_search : public SpellScript
 {
-    PrepareSpellScript(spell_baleroc_shards_of_torment_target_search);
-
     bool Validate(SpellInfo const* /*spellInfo*/) override
     {
         return ValidateSpellInfo({ SPELL_SHARDS_OF_TORMENT_SUMMON });
@@ -583,11 +560,8 @@ class spell_baleroc_shards_of_torment_target_search : public SpellScript
             return;
         }
 
-        Creature* caster = GetCaster()->ToCreature();
-        if (!caster || !caster->IsAIEnabled)
-            return;
-
-        if (WorldObject* tank = caster->AI()->SelectTarget(SELECT_TARGET_TOPAGGRO))
+        Unit* caster = GetCaster();
+        if (WorldObject* tank = caster->GetVictim())
             targets.remove(tank);
 
         std::list<WorldObject*> melee, ranged;
@@ -647,8 +621,6 @@ class spell_baleroc_shards_of_torment_target_search : public SpellScript
 // http://www.wowhead.com/spell=99253/torment
 class spell_baleroc_torment_target_search : public SpellScript
 {
-    PrepareSpellScript(spell_baleroc_torment_target_search);
-
     bool Validate(SpellInfo const* /*spellInfo*/) override
     {
         return ValidateSpellInfo({ SPELL_TORMENT_PERIODIC });
@@ -686,8 +658,6 @@ class spell_baleroc_torment_target_search : public SpellScript
 // http://www.wowhead.com/spell=99256/torment
 class spell_baleroc_torment : public SpellScript
 {
-    PrepareSpellScript(spell_baleroc_torment);
-
     void ModifyDamage()
     {
         SetHitDamage(GetHitDamage() * GetHitUnit()->GetAuraCount(GetSpellInfo()->Id));
@@ -701,14 +671,12 @@ class spell_baleroc_torment : public SpellScript
 
 class spell_baleroc_torment_AuraScript : public AuraScript
 {
-    PrepareAuraScript(spell_baleroc_torment_AuraScript);
-
     bool Validate(SpellInfo const* /*spellInfo*/) override
     {
         return ValidateSpellInfo({ SPELL_VITAL_FLAME, SPELL_VITAL_SPARK, SPELL_TORMENTED });
     }
 
-    void HandleProc(AuraEffect const* /*aurEff*/, ProcEventInfo& eventInfo)
+    void HandleProc(AuraEffect* /*aurEff*/, ProcEventInfo& eventInfo)
     {
         PreventDefaultAction();
         Unit* healer = eventInfo.GetProcTarget();
@@ -739,8 +707,6 @@ class spell_baleroc_torment_AuraScript : public AuraScript
 // http://www.wowhead.com/spell=99257/tormented
 class spell_baleroc_tormented : public AuraScript
 {
-    PrepareAuraScript(spell_baleroc_tormented);
-
     void OnApply(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
     {
         if (InstanceScript* instance = GetTarget()->GetInstanceScript())
@@ -757,8 +723,6 @@ class spell_baleroc_tormented : public AuraScript
 // http://www.wowhead.com/spell=99489/tormented
 class spell_baleroc_tormented_spread : public SpellScript
 {
-    PrepareSpellScript(spell_baleroc_tormented_spread);
-
     bool Validate(SpellInfo const* /*spellInfo*/) override
     {
         return ValidateSpellInfo({ SPELL_TORMENTED });
@@ -779,14 +743,12 @@ class spell_baleroc_tormented_spread : public SpellScript
 // http://www.wowhead.com/spell=99262/vital-spark
 class spell_baleroc_vital_spark : public AuraScript
 {
-    PrepareAuraScript(spell_baleroc_vital_spark);
-
     bool Validate(SpellInfo const* /*spellInfo*/) override
     {
         return ValidateSpellInfo({ SPELL_BLAZE_OF_GLORY, SPELL_VITAL_FLAME });
     }
 
-    void HandleProc(AuraEffect const* /*aurEff*/, ProcEventInfo& eventInfo)
+    void HandleProc(AuraEffect* /*aurEff*/, ProcEventInfo& eventInfo)
     {
         PreventDefaultAction();
         if (Unit* target = eventInfo.GetProcTarget())
@@ -803,11 +765,9 @@ class spell_baleroc_vital_spark : public AuraScript
 // http://www.wowhead.com/spell=99263/vital-flame
 class spell_baleroc_vital_flame : public AuraScript
 {
-    PrepareAuraScript(spell_baleroc_vital_flame);
-
     bool Validate(SpellInfo const* /*spellInfo*/) override
     {
-        return ValidateSpellInfo({ SPELL_VITAL_SPARK });
+        return ValidateSpellEffect({ { SPELL_VITAL_SPARK, EFFECT_0 } });
     }
 
     void OnApply(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
@@ -819,7 +779,7 @@ class spell_baleroc_vital_flame : public AuraScript
         }
 
         stacks = GetCaster()->GetAuraCount(SPELL_VITAL_SPARK);
-        int32 healingPct = sSpellMgr->AssertSpellInfo(SPELL_VITAL_SPARK)->GetEffect(EFFECT_0)->BasePoints * stacks;
+        int32 healingPct = sSpellMgr->AssertSpellInfo(SPELL_VITAL_SPARK, GetCastDifficulty())->GetEffect(EFFECT_0).CalcValue(GetCaster()) * stacks;
 
         if (GetAura()->GetEffect(EFFECT_0)->GetAmount() < healingPct)
             GetAura()->GetEffect(EFFECT_0)->SetAmount(healingPct);
@@ -835,8 +795,8 @@ class spell_baleroc_vital_flame : public AuraScript
 
     void Register() override
     {
-        OnEffectApply += AuraEffectApplyFn(spell_baleroc_vital_flame::OnApply, EFFECT_0, SPELL_AURA_359, AURA_EFFECT_HANDLE_REAL);
-        OnEffectRemove += AuraEffectRemoveFn(spell_baleroc_vital_flame::OnRemove, EFFECT_0, SPELL_AURA_359, AURA_EFFECT_HANDLE_REAL);
+        OnEffectApply += AuraEffectApplyFn(spell_baleroc_vital_flame::OnApply, EFFECT_0, SPELL_AURA_MOD_HEALING_DONE_VERSUS_AURASTATE, AURA_EFFECT_HANDLE_REAL);
+        OnEffectRemove += AuraEffectRemoveFn(spell_baleroc_vital_flame::OnRemove, EFFECT_0, SPELL_AURA_MOD_HEALING_DONE_VERSUS_AURASTATE, AURA_EFFECT_HANDLE_REAL);
     }
 
     uint32 stacks = 0u;
@@ -862,18 +822,18 @@ void AddSC_boss_baleroc()
     RegisterFirelandsAI(boss_baleroc);
     RegisterFirelandsAI(npc_shard_of_torment);
     RegisterSpellScript(spell_baleroc_blades_of_baleroc);
-    RegisterAuraScript(spell_baleroc_inferno_blade);
-    RegisterAuraScript(spell_baleroc_decimation_blade);
+    RegisterSpellScript(spell_baleroc_inferno_blade);
+    RegisterSpellScript(spell_baleroc_decimation_blade);
     RegisterSpellScript(spell_baleroc_decimating_strike);
     RegisterSpellScript(spell_baleroc_countdown_aoe_dummy);
-    RegisterAuraScript(spell_baleroc_countdown);
+    RegisterSpellScript(spell_baleroc_countdown);
     RegisterSpellScript(spell_baleroc_countdown_proximity_check);
     RegisterSpellScript(spell_baleroc_shards_of_torment_target_search);
     RegisterSpellScript(spell_baleroc_torment_target_search);
     RegisterSpellAndAuraScriptPair(spell_baleroc_torment, spell_baleroc_torment_AuraScript);
-    RegisterAuraScript(spell_baleroc_tormented);
+    RegisterSpellScript(spell_baleroc_tormented);
     RegisterSpellScript(spell_baleroc_tormented_spread);
-    RegisterAuraScript(spell_baleroc_vital_spark);
-    RegisterAuraScript(spell_baleroc_vital_flame);
+    RegisterSpellScript(spell_baleroc_vital_spark);
+    RegisterSpellScript(spell_baleroc_vital_flame);
     new achievement_share_the_pain();
 };

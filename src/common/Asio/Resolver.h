@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -18,34 +18,50 @@
 #ifndef Resolver_h__
 #define Resolver_h__
 
+#include "IoContext.h"
 #include "Optional.h"
 #include <boost/asio/ip/tcp.hpp>
-#include <string>
+#include <string_view>
+#include <vector>
 
 namespace Trinity
 {
-    namespace Net
+    namespace Asio
     {
-        inline Optional<boost::asio::ip::tcp::endpoint> Resolve(boost::asio::ip::tcp::resolver& resolver, boost::asio::ip::tcp const& protocol,
-            std::string const& host, std::string const& service)
+        /**
+          Hack to make it possible to forward declare resolver (one of its template arguments is a typedef to something super long and using nested classes)
+        */
+        class Resolver
         {
-            boost::system::error_code ec;
-#if BOOST_VERSION >= 106600
-            boost::asio::ip::tcp::resolver::results_type results = resolver.resolve(protocol, host, service, ec);
-            if (results.empty() || ec)
-                return {};
+        public:
+            explicit Resolver(IoContext& ioContext) : _impl(ioContext) { }
 
-            return results.begin()->endpoint();
-#else
-            boost::asio::ip::tcp::resolver::query query(std::move(protocol), std::move(host), std::move(service));
-            boost::asio::ip::tcp::resolver::iterator itr = resolver.resolve(query, ec);
-            boost::asio::ip::tcp::resolver::iterator end;
-            if (itr == end || ec)
-                return {};
+            Optional<boost::asio::ip::tcp::endpoint> Resolve(boost::asio::ip::tcp const& protocol, std::string_view host, std::string_view service)
+            {
+                boost::system::error_code ec;
+                boost::asio::ip::resolver_base::flags flagsResolver = boost::asio::ip::resolver_base::all_matching;
+                boost::asio::ip::tcp::resolver::results_type results = _impl.resolve(protocol, host, service, flagsResolver, ec);
+                if (results.begin() == results.end() || ec)
+                    return {};
 
-            return itr->endpoint();
-#endif
-        }
+                return results.begin()->endpoint();
+            }
+
+            std::vector<boost::asio::ip::tcp::endpoint> ResolveAll(std::string_view host, std::string_view service)
+            {
+                boost::system::error_code ec;
+                boost::asio::ip::resolver_base::flags flagsResolver = boost::asio::ip::resolver_base::all_matching;
+                boost::asio::ip::tcp::resolver::results_type results = _impl.resolve(host, service, flagsResolver, ec);
+                std::vector<boost::asio::ip::tcp::endpoint> result;
+                if (!ec)
+                    std::ranges::transform(results, std::back_inserter(result), [](boost::asio::ip::tcp::resolver::results_type::value_type const& entry) { return entry.endpoint(); });
+
+                return result;
+            }
+
+        private:
+            boost::asio::ip::tcp::resolver _impl;
+        };
     }
 }
 

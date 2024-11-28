@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -22,10 +22,32 @@
 
 #define MaraudonScriptName "instance_maraudon"
 
-template<typename AI>
-inline AI* GetMaraudonAI(Creature* creature)
+enum MDBossIds
 {
-    return GetInstanceAI<AI>(creature, MaraudonScriptName);
+    BOSS_NOXXION                = 0,
+    BOSS_RAZORLASH              = 1,
+    BOSS_TINKERER_GIZLOCK       = 2,
+    BOSS_LORD_VYLETONGUE        = 3,
+    BOSS_CELEBRAS_THE_CURSED    = 4,
+    BOSS_LANDSLIDE              = 5,
+    BOSS_ROTGRIP                = 6,
+    BOSS_PRINCESS_THERADRAS     = 7,
+
+    MAX_ENCOUNTER
+};
+
+enum MDCreatureIds
+{
+    NPC_RAZORLASH           = 12258,
+    NPC_TINKERER_GIZLOCK    = 13601,
+    NPC_LORD_VYLETONGUE     = 12236,
+    NPC_ROTGRIP             = 13596,
+};
+
+template <class AI, class T>
+inline AI* GetMaraudonAI(T* obj)
+{
+    return GetInstanceAI<AI>(obj, MaraudonScriptName);
 }
 
 #endif // maraudon_h__
